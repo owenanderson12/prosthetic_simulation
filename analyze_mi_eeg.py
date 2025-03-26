@@ -31,7 +31,7 @@ from scipy.signal import savgol_filter
 # Configuration
 ########################################################################
 
-DATA_FILE = "/Users/owenanderson/Documents/NeurEx/Projects/Prosthetics/prosthetic/data/raw/MI_EEG_20250322_173724.csv"  # <-- Replace with your actual CSV filename if different
+DATA_FILE = "/Users/owenanderson/Documents/NeurEx/Projects/Prosthetics/prosthetic/data/raw/MI_EEG_20250325_195036.csv" 
 SAMPLE_RATE = 250  # Hz, matches the original MI script's sampling rate
 FILTER_BAND = (1.0, 40.0)  # Bandpass filter range (in Hz)
 
@@ -48,11 +48,11 @@ MARKER_STOP = "3.0"   # End of imagery period
 
 # Epoching parameters (in seconds)
 # Include 1 second before the start marker for baseline
-EPOCH_START = -1.0  # Start 1 second before the marker
-EPOCH_END = 4.0    # End 4 seconds after the marker
+EPOCH_START = -2.0  # Start 1 second before the marker
+EPOCH_END = 3.0    # End 4 seconds after the marker
 
 # Define baseline period for normalization
-BASELINE_START = -1.0  # Start of baseline period
+BASELINE_START = -2.0  # Start of baseline period
 BASELINE_END = 0.0    # End of baseline period (stimulus onset)
 
 ########################################################################
@@ -189,6 +189,130 @@ def plot_erp(epochs_dict, fs, channel_indices, channel_labels, condition_name):
         
         plt.show()
 
+def bandpower_boxplot(signal, fs, condition_name, channel_name):
+    """
+    Computes the bandpower of the given 1D signal in the mu and beta frequency bands,
+    normalized relative to the baseline period.
+    
+    Parameters:
+    -----------
+    signal : array-like
+        The EEG signal data
+    fs : float
+        Sampling rate in Hz
+    condition_name : str
+        Name of the condition (e.g., "Right" or "Left")
+    channel_name : str
+        Name of the channel (e.g., "CH2")
+    """
+    # Define frequency bands
+    mu_band = (8, 13)  # Hz
+    beta_band = (13, 30)  # Hz
+    
+    # Extract baseline period (first second of data)
+    baseline_samples = int(abs(EPOCH_START) * fs)
+    baseline_signal = signal[:baseline_samples]
+    task_signal = signal[baseline_samples:]
+    
+    # Compute power spectral density using Welch's method for both periods
+    from scipy.signal import welch
+    
+    # Use the same nperseg for both periods to ensure consistent frequency arrays
+    nperseg = min(len(baseline_signal), len(task_signal))
+    f, Pxx_baseline = welch(baseline_signal, fs=fs, nperseg=nperseg)
+    f, Pxx_task = welch(task_signal, fs=fs, nperseg=nperseg)
+    
+    # Calculate power in each band for both periods
+    mu_mask = (f >= mu_band[0]) & (f <= mu_band[1])
+    beta_mask = (f >= beta_band[0]) & (f <= beta_band[1])
+    
+    # Calculate baseline power
+    mu_power_baseline = np.mean(Pxx_baseline[mu_mask])
+    beta_power_baseline = np.mean(Pxx_baseline[beta_mask])
+    
+    # Calculate task power
+    mu_power_task = np.mean(Pxx_task[mu_mask])
+    beta_power_task = np.mean(Pxx_task[beta_mask])
+    
+    # Normalize to percent change from baseline
+    mu_power_norm = ((mu_power_task - mu_power_baseline) / mu_power_baseline) * 100
+    beta_power_norm = ((beta_power_task - beta_power_baseline) / beta_power_baseline) * 100
+    
+    return mu_power_norm, beta_power_norm
+
+def plot_bandpower_boxplots(epochs_dict):
+    """
+    Creates boxplots showing the normalized power in mu and beta frequency bands for each condition.
+    Uses CH3 for left side and CH6 for right side analysis.
+    
+    Parameters:
+    -----------
+    epochs_dict : dict
+        Dictionary containing epochs for each condition
+    """
+    # Initialize lists to store power values
+    mu_powers = []
+    beta_powers = []
+    labels = []
+    
+    # Process each condition
+    for condition in ["Right", "Left"]:
+        if condition not in epochs_dict:
+            continue
+            
+        epochs = epochs_dict[condition]
+        
+        # Process each epoch
+        for epoch in epochs:
+            # Get contralateral and ipsilateral channels
+            if condition == "Right":
+                contra_ch = 2  # CH3 (Left hemisphere)
+                ipsi_ch = 5    # CH6 (Right hemisphere)
+            else:
+                contra_ch = 5  # CH6 (Right hemisphere)
+                ipsi_ch = 2    # CH3 (Left hemisphere)
+            
+            # Calculate power for contralateral hemisphere
+            mu_power_contra, beta_power_contra = bandpower_boxplot(
+                epoch[:, contra_ch], SAMPLE_RATE, condition, f"Contra_{condition}"
+            )
+            mu_powers.append(mu_power_contra)
+            beta_powers.append(beta_power_contra)
+            labels.append(f"{condition} Contra")
+            
+            # Calculate power for ipsilateral hemisphere
+            mu_power_ipsi, beta_power_ipsi = bandpower_boxplot(
+                epoch[:, ipsi_ch], SAMPLE_RATE, condition, f"Ipsi_{condition}"
+            )
+            mu_powers.append(mu_power_ipsi)
+            beta_powers.append(beta_power_ipsi)
+            labels.append(f"{condition} Ipsi")
+    
+    # Create figure with two subplots
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    
+    # Plot mu band power
+    data_mu = [mu_powers[i::4] for i in range(4)]  # Group by condition and hemisphere
+    ax1.boxplot(data_mu, labels=["Right Contra (CH6)", "Right Ipsi (CH3)", "Left Contra (CH3)", "Left Ipsi (CH6)"])
+    ax1.set_title("μ Band Power (8-13 Hz)")
+    ax1.set_ylabel("Power Change from Baseline (%)")
+    ax1.grid(True, alpha=0.3)
+    
+    # Add horizontal line at zero
+    ax1.axhline(y=0, color='k', linestyle='-', alpha=0.2)
+    
+    # Plot beta band power
+    data_beta = [beta_powers[i::4] for i in range(4)]  # Group by condition and hemisphere
+    ax2.boxplot(data_beta, labels=["Right Contra (CH6)", "Right Ipsi (CH3)", "Left Contra (CH3)", "Left Ipsi (CH6)"])
+    ax2.set_title("β Band Power (13-30 Hz)")
+    ax2.set_ylabel("Power Change from Baseline (%)")
+    ax2.grid(True, alpha=0.3)
+    
+    # Add horizontal line at zero
+    ax2.axhline(y=0, color='k', linestyle='-', alpha=0.2)
+    
+    plt.tight_layout()
+    plt.show()
 
 def plot_wavelet_spectrogram(signal, fs, condition_name, channel_name):
     """
@@ -423,6 +547,29 @@ def compute_bipolar_derivation(epochs_dict):
         
     return epochs_dict
 
+def apply_grand_average_reference(data):
+    """
+    Apply grand average reference to the EEG data.
+    This involves subtracting the mean of all channels from each channel.
+    
+    Parameters:
+    -----------
+    data : array (n_samples, n_channels)
+        The EEG data to be referenced
+        
+    Returns:
+    --------
+    referenced_data : array (n_samples, n_channels)
+        The grand average referenced EEG data
+    """
+    # Calculate grand average across all channels
+    grand_avg = np.mean(data, axis=1, keepdims=True)
+    
+    # Subtract grand average from each channel
+    referenced_data = data - grand_avg
+    
+    return referenced_data
+
 def main():
     # 1. LOAD CSV DATA
     df = pd.read_csv(DATA_FILE)
@@ -440,10 +587,13 @@ def main():
     # Convert time reference from raw LSL timestamps (seconds)
     timestamps = df["lsl_timestamp"].values - df["lsl_timestamp"].values[0]
 
-    # 2. PREPROCESS (Bandpass filter)
-    # shape (n_samples, n_channels)
+    # 2. PREPROCESS
+    # First apply grand average reference
     raw_eeg = df[["CH1","CH2","CH3","CH4","CH5","CH6","CH7","CH8"]].values
-    filtered_eeg = bandpass_filter(raw_eeg, SAMPLE_RATE, FILTER_BAND[0], FILTER_BAND[1], order=4)
+    referenced_eeg = apply_grand_average_reference(raw_eeg)
+    
+    # Then apply bandpass filter
+    filtered_eeg = bandpass_filter(referenced_eeg, SAMPLE_RATE, FILTER_BAND[0], FILTER_BAND[1], order=4)
 
     # 3. IDENTIFY MARKERS AND EXTRACT EVENTS
     events = []
@@ -512,7 +662,11 @@ def main():
                     ch_idx = int(ch_name.replace("CH", "")) - 1
                 
                 signal_1d = avg_cond[:, ch_idx]
-                plot_wavelet_spectrogram(signal_1d, SAMPLE_RATE, condition_label, ch_name)
+                #plot_wavelet_spectrogram(signal_1d, SAMPLE_RATE, condition_label, ch_name)
+
+    # Add bandpower boxplots after the wavelet analysis
+    print("\n== Generating Band Power Boxplots ==")
+    plot_bandpower_boxplots(epochs_dict)
 
 
 if __name__ == "__main__":

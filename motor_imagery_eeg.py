@@ -39,8 +39,8 @@ EEG_CHANNELS = ["CH1", "CH2", "CH3", "CH4", "CH5", "CH6", "CH7", "CH8"]
 # Motor Imagery Experiment Parameters
 NUM_TRIALS = 40  # Configurable number of trials
 INSTRUCTION_DURATION = 2.0  # seconds to show left/right instruction
-IMAGERY_DURATION = 4.0  # seconds for motor imagery
-INTER_TRIAL_INTERVAL = 2.0  # seconds between trials
+IMAGERY_DURATION = 3.0  # seconds for motor imagery
+INTER_TRIAL_INTERVAL = 3.0  # seconds between trials
 
 # Marker values
 MARKER_RIGHT = "1"  # right hand imagery
@@ -236,7 +236,8 @@ def run_motor_imagery_experiment():
         marker_val = MARKER_RIGHT if hand == "right" else MARKER_LEFT
         win.callOnFlip(lambda m=marker_val: marker_outlet.push_sample([m]))
         win.flip()
-        
+        core.wait(0.25)
+
         # Show HOLD during imagery period
         instruction_text.text = "HOLD"
         instruction_text.draw()
