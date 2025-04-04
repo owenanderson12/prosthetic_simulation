@@ -1,0 +1,13 @@
+Here is our data:
+
+Data shape
+
+Rows:
+First row: Header
+Next m rows: samples (Data points)
+
+Columns:
+
+Col 1: Timestamps
+Col 2:9: Channels
+Col 10: Markers
