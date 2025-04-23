@@ -151,7 +151,8 @@ epochs_data = epochs.get_data()  # shape: (n_epochs, n_channels, n_times)
 print(f"Epochs data shape: {epochs_data.shape}")
 
 # 5. Compute features using MNE epochs
-features = []
+X = []
+y = []
 key = ['mu_power_left', 'beta_power_left', 'mu_power_right', 'beta_power_right']
 
 # Get indices for channels of interest
@@ -173,8 +174,13 @@ for condition, event_id in EVENT_IDS.items():
             epoch[c4_idx, :], SAMPLE_RATE, EPOCH_START)
         
         # Here you could store features for machine learning
-        features.append([mu_power_left, beta_power_left, mu_power_right, beta_power_right])
+        X.append([mu_power_left, beta_power_left, mu_power_right, beta_power_right])
+        y.append(event_id)
 
+X = np.array(X)
+y = np.array(y)
+print(X)
+print(y)
 epochs_train = epochs.copy().crop(tmin=0.0, tmax=3.0)
 labels = epochs.events[:, -1] 
 
