@@ -11,6 +11,8 @@ Steps:
   3. Identify markers and epoch data based on motor imagery start events ("1"=Right, "2"=Left).
   4. Plot ERPs for the channels of interest.
   5. Perform a wavelet transform on the averaged signals and plot the spectrogram.
+  6. Generate band power boxplots for comparing conditions.
+  7. Plot time course of average mu and beta band powers for each condition.
 
 Requirements:
     pip install numpy pandas scipy matplotlib pywt
@@ -32,6 +34,7 @@ from modules.plot_bandpower_boxplots import plot_bandpower_boxplots
 from modules.plot_wavelet_spectrogram import plot_wavelet_spectrogram
 from modules.compute_bipolar_derivation import compute_bipolar_derivation
 from modules.apply_grand_average_reference import apply_grand_average_reference
+from modules.plot_average_band_powers import plot_average_band_powers
 
 ########################################################################
 # Configuration
@@ -158,9 +161,13 @@ def main():
                 #plot_wavelet_spectrogram(signal_1d, SAMPLE_RATE, condition_label, ch_name, 
                 #                         EPOCH_START, EPOCH_END, BASELINE_START, BASELINE_END)
 
-    # Add bandpower boxplots after the wavelet analysis
+    # 7. Generate band power boxplots
     print("\n== Generating Band Power Boxplots ==")
     plot_bandpower_boxplots(epochs_dict, SAMPLE_RATE, EPOCH_START)
+    
+    # 8. Plot average band powers over time for each condition
+    print("\n== Generating Average Band Power Time Courses ==")
+    plot_average_band_powers(epochs_dict, SAMPLE_RATE, EPOCH_START, BASELINE_END)
 
 
 if __name__ == "__main__":

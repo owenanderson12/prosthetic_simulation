@@ -25,8 +25,9 @@ import logging
 from scipy import signal
 import socket
 import json
-import mmap
-import struct
+# Comment out mmap and struct imports
+# import mmap
+# import struct
 
 # Configure logging
 logging.basicConfig(
@@ -84,24 +85,9 @@ MERGE_THRESHOLD = 0.002  # seconds threshold for aligning EEG and marker timesta
 POLL_SLEEP = 0.001      # sleep time between polls in collector loop
 
 # At the top with other constants
-SHARED_MEMORY_NAME = "MuBandPower"
-SHARED_MEMORY_SIZE = 12  # 4 bytes for mu power + 4 bytes for beta power + 4 bytes for hand type
-
-def setup_shared_memory():
-    # Create or open shared memory
-    shm = mmap.mmap(-1, SHARED_MEMORY_SIZE, SHARED_MEMORY_NAME)
-    return shm
-
-def send_shared_memory_data(mu_power, beta_power, hand_type, shm):
-    try:
-        # Pack the data into binary format
-        data = struct.pack('fff', float(mu_power), float(beta_power), float(hand_type == "right"))
-        # Write to shared memory
-        shm.seek(0)
-        shm.write(data)
-        shm.flush()
-    except Exception as e:
-        logging.error(f"Error writing to shared memory: {e}")
+# Comment out shared memory constants
+# SHARED_MEMORY_NAME = "MuBandPower"
+# SHARED_MEMORY_SIZE = 12  # 4 bytes for mu power + 4 bytes for beta power + 4 bytes for hand type
 
 ###############################################################################
 #                         DATA COLLECTOR
@@ -126,6 +112,13 @@ class LSLDataCollector(threading.Thread):
         self.last_mu_update = 0
         self.last_beta_update = 0
         
+        # Track current hand movement type
+        self.current_hand = "right"  # Default to right hand
+        
+        # Index for electrodes (0-indexed, so CH3 is index 2, CH6 is index 5)
+        self.ch3_index = 2  # Left hemisphere (for right hand movement)
+        self.ch6_index = 5  # Right hemisphere (for left hand movement)
+        
         # Initialize Mu band filter
         nyq = SAMPLE_RATE / 2
         mu_low = MU_BAND_LOW / nyq
@@ -137,6 +130,11 @@ class LSLDataCollector(threading.Thread):
         beta_high = BETA_BAND_HIGH / nyq
         self.beta_b, self.beta_a = signal.butter(4, [beta_low, beta_high], btype='band')
 
+    def set_current_hand(self, hand):
+        """Set the current hand being used for imagery."""
+        self.current_hand = hand
+        logging.info(f"Set current hand to {hand}, using {'CH6' if hand == 'left' else 'CH3'} for band power")
+
     def process_mu_band(self, eeg_data):
         """Process EEG data to extract Mu band power."""
         if len(self.eeg_window) < WINDOW_SIZE:
@@ -145,19 +143,21 @@ class LSLDataCollector(threading.Thread):
         # Convert deque to numpy array
         eeg_window = np.array(list(self.eeg_window))
         
-        # Apply bandpass filter
-        filtered_data = signal.filtfilt(self.mu_b, self.mu_a, eeg_window, axis=0)
+        # Select the appropriate channel based on current hand
+        channel_index = self.ch6_index if self.current_hand == "left" else self.ch3_index
+        channel_data = eeg_window[:, channel_index]
+        
+        # Apply bandpass filter to selected channel
+        filtered_data = signal.filtfilt(self.mu_b, self.mu_a, channel_data)
         
         # Calculate power in Mu band
-        mu_power = np.mean(np.abs(filtered_data) ** 2, axis=0)
+        mu_power = np.mean(np.abs(filtered_data) ** 2)
         
-        # Normalize power (0-1 range)
-        mu_power = (mu_power - np.min(mu_power)) / (np.max(mu_power) - np.min(mu_power))
+        # Normalize power (0-1 range) - use running min/max for more stable normalization
+        # This is a simplified normalization for real-time use
+        mu_power = min(1.0, mu_power / 10.0)  # Simple scaling, adjust the divisor as needed
         
-        # Average across channels
-        avg_mu_power = np.mean(mu_power)
-        
-        return avg_mu_power
+        return mu_power
 
     def process_beta_band(self, eeg_data):
         """Process EEG data to extract Beta band power."""
@@ -167,19 +167,21 @@ class LSLDataCollector(threading.Thread):
         # Convert deque to numpy array
         eeg_window = np.array(list(self.eeg_window))
         
-        # Apply bandpass filter
-        filtered_data = signal.filtfilt(self.beta_b, self.beta_a, eeg_window, axis=0)
+        # Select the appropriate channel based on current hand
+        channel_index = self.ch6_index if self.current_hand == "left" else self.ch3_index
+        channel_data = eeg_window[:, channel_index]
+        
+        # Apply bandpass filter to selected channel
+        filtered_data = signal.filtfilt(self.beta_b, self.beta_a, channel_data)
         
         # Calculate power in Beta band
-        beta_power = np.mean(np.abs(filtered_data) ** 2, axis=0)
+        beta_power = np.mean(np.abs(filtered_data) ** 2)
         
-        # Normalize power (0-1 range)
-        beta_power = (beta_power - np.min(beta_power)) / (np.max(beta_power) - np.min(beta_power))
+        # Normalize power (0-1 range) - use running min/max for more stable normalization
+        # This is a simplified normalization for real-time use
+        beta_power = min(1.0, beta_power / 10.0)  # Simple scaling, adjust the divisor as needed
         
-        # Average across channels
-        avg_beta_power = np.mean(beta_power)
-        
-        return avg_beta_power
+        return beta_power
 
     def resolve_streams(self):
         try:
@@ -302,7 +304,7 @@ class LSLDataCollector(threading.Thread):
 ###############################################################################
 def run_motor_imagery_experiment():
     from pylsl import StreamInfo, StreamOutlet
-    global mu_power, beta_power  # Add beta_power to global variables
+    global mu_power, beta_power, collector  # Make collector accessible globally
     
     # Create LSL Marker stream
     try:
@@ -351,6 +353,10 @@ def run_motor_imagery_experiment():
     beta_meter_text = visual.TextStim(win, text="Beta Band Power", height=0.05,
                                pos=(beta_meter_pos[0], beta_meter_pos[1] + meter_height/2 + 0.1))
     
+    # Add channel indicator
+    channel_text = visual.TextStim(win, text="", height=0.05, color="white",
+                              pos=(0, -0.7))
+    
     # Create simulation instructions
     sim_text = visual.TextStim(win, text="", height=0.05, color="white",
                              pos=(0, -0.8))
@@ -370,8 +376,16 @@ def run_motor_imagery_experiment():
     
     # Main experiment loop
     for trial_num, hand in enumerate(trials, 1):
+        # Set the current hand in the collector
+        collector.set_current_hand(hand)
+        
+        # Update the channel indicator
+        channel_used = "CH3" if hand == "right" else "CH6"
+        channel_text.text = f"Using {channel_used} (Contralateral Hemisphere)"
+        
         # Display get ready message
         ready_text.draw()
+        channel_text.draw()
         sim_text.draw()
         win.flip()
         core.wait(1.0)
@@ -379,6 +393,7 @@ def run_motor_imagery_experiment():
         # Show instruction (right or left hand)
         instruction_text.text = f"{hand.upper()} HAND"
         instruction_text.draw()
+        channel_text.draw()
         sim_text.draw()
         win.flip()
         core.wait(INSTRUCTION_DURATION)
@@ -386,6 +401,7 @@ def run_motor_imagery_experiment():
         # Show START cue and send marker
         instruction_text.text = "START"
         instruction_text.draw()
+        channel_text.draw()
         sim_text.draw()
         # Schedule marker to be sent on next flip
         marker_val = MARKER_RIGHT if hand == "right" else MARKER_LEFT
@@ -420,9 +436,9 @@ def run_motor_imagery_experiment():
             mu_meter_fill.height = mu_power * meter_height
             beta_meter_fill.height = beta_power * meter_height
             
-            # Send data to Unity
-            shm = setup_shared_memory()
-            send_shared_memory_data(mu_power, beta_power, hand, shm)
+            # Comment out shared memory operations
+            # shm = setup_shared_memory()
+            # send_shared_memory_data(mu_power, beta_power, hand, shm)
             
             # Clear the window
             win.clearBuffer()
@@ -435,6 +451,7 @@ def run_motor_imagery_experiment():
             beta_meter_bg.draw()
             beta_meter_fill.draw()
             beta_meter_text.draw()
+            channel_text.draw()
             sim_text.draw()
             
             # Update the display
@@ -444,6 +461,7 @@ def run_motor_imagery_experiment():
         # Show STOP and send stop marker
         instruction_text.text = "STOP"
         instruction_text.draw()
+        channel_text.draw()
         sim_text.draw()
         win.callOnFlip(lambda: marker_outlet.push_sample([MARKER_STOP]))
         win.flip()
@@ -470,7 +488,7 @@ def main():
     logging.info("Starting Motor Imagery experiment script")
     
     # Create shared variables for Mu and Beta band power
-    global mu_power, beta_power
+    global mu_power, beta_power, collector
     mu_power = 0.0
     beta_power = 0.0
     
