@@ -1,2 +1,2 @@
-https://drive.google.com/file/d/1iyRLhbH7eH1a0xaoA1x4LDylKuuIHMwI/view?usp=drive_link
-press and hold "q" to close and open the left hand, press and hold "w" to close and open the right hand.
+https://drive.google.com/drive/folders/186Qu4Saglj9zGXG7OQilG6njzxCxZvoJ?usp=drive_link
+Currently the Unity project and build are too large to put in the Github as one upload. As such, I've uploaded them in our team folder's "Code" directory, and placed a link to the folder above.
