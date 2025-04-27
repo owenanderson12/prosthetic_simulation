@@ -29,7 +29,6 @@ import matplotlib.pyplot as plt
 from modules.bandpass_filter import bandpass_filter
 from modules.extract_epochs import extract_epochs
 from modules.plot_erp import plot_erp
-from modules.bandpower_boxplot import bandpower_boxplot
 from modules.plot_bandpower_boxplots import plot_bandpower_boxplots
 from modules.plot_wavelet_spectrogram import plot_wavelet_spectrogram
 from modules.compute_bipolar_derivation import compute_bipolar_derivation
@@ -40,7 +39,7 @@ from modules.plot_average_band_powers import plot_average_band_powers
 # Configuration
 ########################################################################
 
-DATA_FILE = "/Users/owenanderson/Documents/NeurEx/Projects/Prosthetics/prosthetic/data/raw/MI_EEG_20250325_195036.csv" 
+DATA_FILE = "/Users/owenanderson/Documents/NeurEx/Projects/Prosthetics/neurofeedback/MI_Neurofeedback/data/raw/MI_EEG_20250423_191831.csv" 
 SAMPLE_RATE = 250  # Hz, matches the original MI script's sampling rate
 FILTER_BAND = (1.0, 40.0)  # Bandpass filter range (in Hz)
 
@@ -158,8 +157,8 @@ def main():
                     ch_idx = int(ch_name.replace("CH", "")) - 1
                 
                 signal_1d = avg_cond[:, ch_idx]
-                #plot_wavelet_spectrogram(signal_1d, SAMPLE_RATE, condition_label, ch_name, 
-                #                         EPOCH_START, EPOCH_END, BASELINE_START, BASELINE_END)
+                plot_wavelet_spectrogram(signal_1d, SAMPLE_RATE, condition_label, ch_name, 
+                                         EPOCH_START, EPOCH_END, BASELINE_START, BASELINE_END)
 
     # 7. Generate band power boxplots
     print("\n== Generating Band Power Boxplots ==")
