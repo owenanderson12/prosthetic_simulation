@@ -34,6 +34,7 @@ from dependencies.eeg_acquisition import EEGAcquisition
 from dependencies.signal_processor import SignalProcessor
 from dependencies.classifier import Classifier
 from dependencies.calibration import CalibrationSystem, CalibrationStage
+from dependencies.BCISystem import BCISystem
 # The simulation interface will be imported when you implement it
 # from simulation_interface import SimulationInterface
 # Same for visualization
