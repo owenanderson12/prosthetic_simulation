@@ -45,11 +45,11 @@ class SimulationInterface:
         try:
             # Convert state to a numeric value for easier processing in Unity
             # You can adjust this mapping based on your Unity script's expectations
-            state_value = 0  # Default/idle
-            if state == 'left':
-                state_value = 1
-            elif state == 'right':
-                state_value = 2
+            state_value = state  # Default/idle
+            #if state == 'left':
+            #    state_value = 1
+            #elif state == 'right':
+            #    state_value = 2
                 
             # Send the data to the LSL stream
             # Format: [state_value, confidence]
