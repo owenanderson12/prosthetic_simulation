@@ -9,9 +9,11 @@ rather than acting independetly.
 from pylsl import StreamInfo, StreamOutlet
 import pandas as pd
 import time
+import glob
 
-# Load your EEG data from CSV
-df = pd.read_csv("/home/aaronschott/VS/projects/OLEMAA/prosthetic/Data/raw/session_3/MI_EEG_20250406_163935.csv")
+# Load and concatenate all EEG CSV files in the session_3 directory
+csv_files = sorted(glob.glob("/home/aaronschott/VS/projects/OLEMAA/prosthetic/Data/raw/session_3/*.csv"))
+df = pd.concat([pd.read_csv(f) for f in csv_files], ignore_index=True)
 
 # Extract channel data columns (columns 2–9)
 channel_columns = df.columns[1:9]
