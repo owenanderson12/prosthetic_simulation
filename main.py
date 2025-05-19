@@ -30,10 +30,12 @@ DEPENDENCIES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dep
 sys.path.append(DEPENDENCIES_DIR)
 
 # Import module components
+from dependencies.data_source import DataSource
 from dependencies.eeg_acquisition import EEGAcquisition
 from dependencies.signal_processor import SignalProcessor
 from dependencies.classifier import Classifier
 from dependencies.calibration import CalibrationSystem, CalibrationStage
+from dependencies.BCISystem import BCISystem
 # The simulation interface will be imported when you implement it
 # from simulation_interface import SimulationInterface
 # Same for visualization
@@ -49,6 +51,8 @@ def parse_arguments():
                       help='Load a saved calibration file')
     parser.add_argument('--config', type=str, metavar='CONFIG_FILE',
                       help='Path to an alternative configuration file')
+    parser.add_argument('--source-type', type=str, choices=['live', 'artificial'], default='live',
+                      help='EEG data source type: live or artificial (default: live)')
     
     return parser.parse_args()
 
@@ -91,8 +95,8 @@ def main():
     config_dict = load_config(args.config)
     
     try:
-        # Create BCI system
-        bci_system = BCISystem(config_dict)
+        # Create BCI system with selected EEG data source type
+        bci_system = BCISystem(config_dict, source_type=args.source_type)
         
         # Start the system
         if not bci_system.start():

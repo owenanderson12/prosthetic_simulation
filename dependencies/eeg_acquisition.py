@@ -9,7 +9,7 @@ from collections import deque
 import numpy as np
 from typing import Tuple, List, Optional, Dict
 
-from modules.config import *
+import config
 
 class EEGAcquisition:
     """

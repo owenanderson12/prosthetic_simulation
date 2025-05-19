@@ -18,7 +18,7 @@ DEPENDENCIES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dep
 sys.path.append(DEPENDENCIES_DIR)
 
 # Import module components
-from dependencies.eeg_acquisition import EEGAcquisition
+from dependencies.data_source import DataSource
 from dependencies.signal_processor import SignalProcessor
 from dependencies.classifier import Classifier
 from dependencies.calibration import CalibrationSystem, CalibrationStage
@@ -28,14 +28,16 @@ class BCISystem:
     Main BCI system class that orchestrates all components.
     """
     
-    def __init__(self, config_dict: Dict[str, Any]):
+    def __init__(self, config_dict: Dict[str, Any], source_type: str = "live"):
         """
         Initialize the BCI system.
         
         Args:
             config_dict: Configuration dictionary
+            source_type: EEG data source type ('live' or 'artificial')
         """
         self.config = config_dict
+        self.source_type = source_type
         self._setup_logging()
         
         # System state
@@ -77,8 +79,8 @@ class BCISystem:
     def _initialize_modules(self) -> None:
         """Initialize all system modules."""
         try:
-            # EEG Acquisition
-            self.eeg_acquisition = EEGAcquisition(self.config)
+            # EEG Acquisition (via unified DataSource interface)
+            self.eeg_acquisition = DataSource(source_type=self.source_type)
             
             # Signal Processor
             self.signal_processor = SignalProcessor(self.config)
@@ -116,13 +118,8 @@ class BCISystem:
             return False
         
         try:
-            # Connect to EEG stream
-            if not self.eeg_acquisition.connect():
-                logging.error("Failed to connect to EEG stream")
-                return False
-            
-            # Start EEG acquisition in background
-            self.eeg_acquisition.start_background_update()
+            # For DataSource, no explicit connect/start needed; handled internally if needed
+            # (If your DataSource or EEGAcquisition requires explicit connection logic, consider adding it to DataSource)
             
             # Start simulation interface if available
             # if self.simulation:
