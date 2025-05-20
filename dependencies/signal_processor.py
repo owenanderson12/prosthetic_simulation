@@ -363,6 +363,18 @@ class SignalProcessor:
             logging.exception("Error updating baseline:")
     
     def train_csp(self, left_trials: List[np.ndarray], right_trials: List[np.ndarray], n_components: int = 4) -> None:
+        # Validate trial data for NaN, Inf, and zero-variance
+        for idx, trial in enumerate(left_trials + right_trials):
+            if trial.size == 0:
+                logging.error(f"Trial {idx} is empty. Aborting CSP training.")
+                return
+            if np.isnan(trial).any() or np.isinf(trial).any():
+                logging.error(f"Trial {idx} contains NaN or Inf values. Aborting CSP training.")
+                return
+            if np.all(trial == trial.flat[0]):
+                logging.error(f"Trial {idx} has zero variance. Aborting CSP training.")
+                return
+
         """
         Train Common Spatial Pattern filters for left vs right hand motor imagery.
         
@@ -400,7 +412,7 @@ class SignalProcessor:
             # Get normalization parameters from training data
             all_features = []
             for trial in processed_left + processed_right:
-                features = self._extract_csp_features(trial, normalize=False)
+                features = self._extract_csp_features(trial, normalize=True)
                 if features is not None:
                     all_features.append(features)
             
@@ -441,6 +453,14 @@ class SignalProcessor:
         return avg_cov
     
     def _train_csp_from_covariance(self, cov_a: np.ndarray, cov_b: np.ndarray, n_components: int) -> Tuple[np.ndarray, np.ndarray]:
+        # Validate covariance matrices
+        if np.any(np.isnan(cov_a)) or np.any(np.isnan(cov_b)) or np.any(np.isinf(cov_a)) or np.any(np.isinf(cov_b)):
+            logging.error("Covariance matrices contain NaN or Inf. Aborting CSP training.")
+            raise ValueError("Covariance matrices contain NaN or Inf.")
+        if np.all(cov_a == cov_a.flat[0]) or np.all(cov_b == cov_b.flat[0]):
+            logging.error("Covariance matrix has zero variance. Aborting CSP training.")
+            raise ValueError("Covariance matrix has zero variance.")
+
         """
         Train CSP filters from covariance matrices.
         
