@@ -7,7 +7,13 @@ prosthetic hand control system. It manages the signal acquisition, processing,
 classification, and simulation interface components.
 
 Usage:
-    python main.py [--calibrate] [--load-calibration FILE] [--config CONFIG_FILE]
+    python main.py [--calibrate] [--load-calibration FILE] [--config CONFIG_FILE] [--source-type live|artificial]
+
+Note:
+    The current artificial LSL stream logic does not wait for a receiver before streaming. 
+    To prevent data loss, use this one line command in your terminal which runs both scripts simultaneously:
+    
+    (cd dependencies && python artificial_data_stream.py) & python3 main.py --source-type artificial --calibrate 
 """
 
 import os
