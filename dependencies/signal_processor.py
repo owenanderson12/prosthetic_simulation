@@ -363,17 +363,30 @@ class SignalProcessor:
             logging.exception("Error updating baseline:")
     
     def train_csp(self, left_trials: List[np.ndarray], right_trials: List[np.ndarray], n_components: int = 4) -> None:
-        # Validate trial data for NaN, Inf, and zero-variance
-        for idx, trial in enumerate(left_trials + right_trials):
-            if trial.size == 0:
-                logging.error(f"Trial {idx} is empty. Aborting CSP training.")
-                return
-            if np.isnan(trial).any() or np.isinf(trial).any():
-                logging.error(f"Trial {idx} contains NaN or Inf values. Aborting CSP training.")
-                return
-            if np.all(trial == trial.flat[0]):
-                logging.error(f"Trial {idx} has zero variance. Aborting CSP training.")
-                return
+        def _clean_trials(trials, hand_label):
+            cleaned = []
+            for idx, trial in enumerate(trials):
+                if trial.size == 0:
+                    logging.warning(f"{hand_label} trial {idx} is empty. Skipping.")
+                    continue
+                if np.isnan(trial).any() or np.isinf(trial).any():
+                    logging.warning(f"{hand_label} trial {idx} contains NaN or Inf. Skipping.")
+                    continue
+                if np.all(trial == trial.flat[0]):
+                    logging.warning(f"{hand_label} trial {idx} has zero variance. Skipping.")
+                    continue
+                cleaned.append(trial)
+            return cleaned
+
+        left_trials_clean = _clean_trials(left_trials, "Left")
+        right_trials_clean = _clean_trials(right_trials, "Right")
+
+        if len(left_trials_clean) < 5 or len(right_trials_clean) < 5:
+            logging.error(f"Not enough valid trials after cleaning (left: {len(left_trials_clean)}, right: {len(right_trials_clean)}). Aborting CSP training.")
+            return
+
+        left_trials = left_trials_clean
+        right_trials = right_trials_clean
 
         """
         Train Common Spatial Pattern filters for left vs right hand motor imagery.
