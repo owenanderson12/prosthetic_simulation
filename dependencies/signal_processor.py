@@ -366,15 +366,51 @@ class SignalProcessor:
         def _clean_trials(trials, hand_label):
             cleaned = []
             for idx, trial in enumerate(trials):
+                original_trial = trial.copy()
                 if trial.size == 0:
                     logging.warning(f"{hand_label} trial {idx} is empty. Skipping.")
                     continue
-                if np.isnan(trial).any() or np.isinf(trial).any():
-                    logging.warning(f"{hand_label} trial {idx} contains NaN or Inf. Skipping.")
+                # Handle NaN/Inf by interpolation or replacement if possible
+                nan_mask = np.isnan(trial)
+                inf_mask = np.isinf(trial)
+                n_bad = np.sum(nan_mask | inf_mask)
+                total = trial.size
+                if n_bad > 0:
+                    # Try to interpolate only if <20% of data is bad
+                    if n_bad / total < 0.2:
+                        trial = trial.astype(float)  # ensure float for NaN assignment
+                        trial[nan_mask] = np.nan
+                        trial[inf_mask] = np.nan
+                        # Interpolate NaNs along each channel (axis 0)
+                        for ch in range(trial.shape[1]):
+                            channel = trial[:, ch]
+                            if np.any(np.isnan(channel)):
+                                not_nan = ~np.isnan(channel)
+                                if np.sum(not_nan) > 1:
+                                    channel[np.isnan(channel)] = np.interp(
+                                        np.flatnonzero(np.isnan(channel)),
+                                        np.flatnonzero(not_nan),
+                                        channel[not_nan]
+                                    )
+                                else:
+                                    # If all values are NaN, skip trial
+                                    logging.warning(f"{hand_label} trial {idx} channel {ch} all NaN after interpolation. Skipping trial.")
+                                    break
+                        # After interpolation, check again for NaN
+                        if np.isnan(trial).any() or np.isinf(trial).any():
+                            logging.warning(f"{hand_label} trial {idx} still contains NaN/Inf after interpolation. Skipping.")
+                            continue
+                        logging.info(f"{hand_label} trial {idx}: {n_bad}/{total} ({n_bad/total:.1%}) NaN/Inf values interpolated.")
+                    else:
+                        logging.warning(f"{hand_label} trial {idx} contains {n_bad}/{total} ({n_bad/total:.1%}) NaN/Inf values. Too many to fix, skipping.")
+                        continue
+                # Handle near-zero variance: allow if not all values are constant
+                flat_fraction = np.mean(np.ptp(trial, axis=0) == 0)
+                if flat_fraction > 0.5:
+                    logging.warning(f"{hand_label} trial {idx} has >50% zero-variance channels. Skipping.")
                     continue
-                if np.all(trial == trial.flat[0]):
-                    logging.warning(f"{hand_label} trial {idx} has zero variance. Skipping.")
-                    continue
+                elif flat_fraction > 0:
+                    logging.info(f"{hand_label} trial {idx} has {flat_fraction:.1%} zero-variance channels, but keeping trial.")
                 cleaned.append(trial)
             return cleaned
 
