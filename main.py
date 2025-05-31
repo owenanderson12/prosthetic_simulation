@@ -7,7 +7,14 @@ prosthetic hand control system. It manages the signal acquisition, processing,
 classification, and simulation interface components.
 
 Usage:
-    python main.py [--calibrate] [--load-calibration FILE] [--config CONFIG_FILE] [--file-source FILE_PATH] [--visualize]
+    python main.py [--calibrate] [--load-calibration FILE] [--config CONFIG_FILE] 
+                   [--file-source FILE_PATH] [--visualize] [--source-type live|artificial]
+
+Note:
+    For artificial LSL stream: The artificial data stream needs to be started before this script.
+    You can use this command to run both simultaneously:
+    
+    (cd dependencies && python artificial_data_stream.py) & python3 main.py --source-type artificial --calibrate 
 """
 
 import os
@@ -30,6 +37,7 @@ DEPENDENCIES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dep
 sys.path.append(DEPENDENCIES_DIR)
 
 # Import module components
+from dependencies.data_source import DataSource
 from dependencies.eeg_acquisition import EEGAcquisition
 from dependencies.signal_processor import SignalProcessor
 from dependencies.classifier import Classifier
@@ -54,6 +62,8 @@ def parse_arguments():
                       help='Use a pre-recorded EEG file as data source instead of live acquisition')
     parser.add_argument('--visualize', action='store_true',
                       help='Enable visualization of the prosthetic hand movements')
+    parser.add_argument('--source-type', type=str, choices=['live', 'artificial'], default='live',
+                      help='EEG data source type: live or artificial (default: live)')
     
     return parser.parse_args()
 
@@ -96,9 +106,15 @@ def main():
     config_dict = load_config(args.config)
     
     try:
-        # Determine data source type
-        source_type = "file" if args.file_source else "live"
-        source_path = args.file_source if args.file_source else None
+        # Determine data source type and path
+        if args.file_source:
+            # File source takes precedence
+            source_type = "file"
+            source_path = args.file_source
+        else:
+            # Use source-type argument (live or artificial)
+            source_type = args.source_type
+            source_path = None
         
         # Create BCI system
         bci_system = BCISystem(config_dict, source_type=source_type, source_path=source_path)

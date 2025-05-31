@@ -156,6 +156,8 @@ class CalibrationSystem:
     def _run_calibration(self) -> None:
         """Main calibration procedure running in a separate thread."""
         try:
+            logging.info("Starting calibration thread. Calibration parameters: num_trials=%d, trial_duration=%.2f, rest_duration=%.2f", self.num_trials, self.trial_duration, self.rest_duration)
+            
             # 1. Make sure we have a good connection
             if not self.eeg_acquisition.is_signal_good():
                 logging.error("Signal quality too poor for calibration")
@@ -163,22 +165,28 @@ class CalibrationSystem:
                 return
                 
             self.start_time = time.time()
+            logging.info(f"Calibration global start_time: {self.start_time}")
             self.timestamp_offset = 0.0
             if hasattr(self.eeg_acquisition, 'inlet') and self.eeg_acquisition.inlet:
                 self.timestamp_offset = self.eeg_acquisition.clock_offset
+            logging.info(f"EEG clock offset: {self.timestamp_offset}")
                 
             # 2. Collect baseline data (resting state)
             self._update_ui("Preparing for baseline collection. Please relax.")
             time.sleep(3.0)  # Give time to read instructions
             
+            logging.info("Starting baseline collection.")
             self._collect_baseline()
+            logging.info("Baseline collection complete.")
             if self._stop_event.is_set():
+                logging.info("Calibration aborted after baseline collection.")
                 return
                 
             # 3. Train the signal processor with baseline data
             self._update_ui("Processing baseline data...")
             self._process_baseline()
-            
+            logging.info("Baseline processed. Entering calibration trials.")
+        
             # 4. Run calibration trials alternating between left and right
             trials_complete = 0
             while (trials_complete < 2 * self.num_trials) and not self._stop_event.is_set():
@@ -201,18 +209,22 @@ class CalibrationSystem:
                 self.current_stage = stage
                 self.stage_start_time = time.time()
                 self.trial_count[stage] += 1
-                
+                logging.info(f"Starting trial: stage={stage.name}, trial_number={self.trial_count[stage]}, stage_start_time={self.stage_start_time}")
+            
                 # Send marker
                 if self.marker_outlet:
                     marker = "2" if stage == CalibrationStage.LEFT else "1"  # 2=left, 1=right
                     self.marker_outlet.push_sample([marker])
-                    
+                    logging.info(f"Sent marker {marker} for stage {stage.name}")
+            
                 # Show cue
                 self._update_ui(f"Imagine {cue} movement")
-                
+            
                 # Collect data for this trial
                 self._collect_trial_data(stage)
+                logging.info(f"Completed trial: stage={stage.name}, trial_number={self.trial_count[stage]}")
                 if self._stop_event.is_set():
+                    logging.info("Calibration aborted during trials loop.")
                     break
                     
                 # End of trial marker
@@ -224,14 +236,15 @@ class CalibrationSystem:
                 # Give feedback on progress
                 progress = int((trials_complete / (2 * self.num_trials)) * 100)
                 self._update_ui(f"Progress: {progress}%")
-                
+                logging.info(f"Trials complete: {trials_complete}/{2 * self.num_trials}, Progress: {progress}%")
+        
             # 5. Process collected data and train classifier
             if not self._stop_event.is_set():
                 self.current_stage = CalibrationStage.COMPLETE
                 self._update_ui("Processing calibration data...")
-                
+            
                 success = self._train_classifier()
-                
+            
                 if success:
                     self._update_ui("Calibration complete! Classifier trained successfully.")
                     # Save calibration data
@@ -240,9 +253,8 @@ class CalibrationSystem:
                     self._update_ui("Calibration complete, but classifier training failed. Try again.")
                     
             logging.info("Calibration procedure finished")
-            
         except Exception as e:
-            logging.exception("Error during calibration:")
+            logging.exception("Error during calibration (exception details logged):")
             self._update_ui(f"Error during calibration: {str(e)}")
     
     def _wait(self, duration: float) -> None:
@@ -271,7 +283,7 @@ class CalibrationSystem:
                     'stage': self.current_stage,
                     'message': message,
                     'trial_count': dict(self.trial_count),
-                    'time_elapsed': time.time() - self.start_time
+                    'time_elapsed': time.time() - self.start_time if self.start_time > 0 else 0
                 })
             except Exception as e:
                 logging.exception("Error in UI callback:")
@@ -334,17 +346,27 @@ class CalibrationSystem:
         """
         start_time = time.time()
         end_time = start_time + self.trial_duration
+        logging.info(f"[TrialData] Trial start: stage={stage.name}, start_time={start_time}, expected_end_time={end_time}, duration={self.trial_duration}")
         trial_chunks = []
         
         while time.time() < end_time and not self._stop_event.is_set():
             # Get latest EEG data
-            data, timestamps = self.eeg_acquisition.get_chunk(window_size=int(0.25 * self.eeg_acquisition.sample_rate))
-            
+            try:
+                data, timestamps = self.eeg_acquisition.get_chunk(window_size=int(0.25 * self.eeg_acquisition.sample_rate))
+            except Exception as e:
+                logging.exception(f"[TrialData] Exception during EEG data acquisition: {e}")
+                break
+        
             if data.size > 0:
                 trial_chunks.append(data)
+                logging.debug(f"[TrialData] Got data chunk: shape={data.shape}, stage={stage.name}")
                 
                 # Process this chunk for features
-                result = self.signal_processor.process(data, timestamps)
+                try:
+                    result = self.signal_processor.process(data, timestamps)
+                except Exception as e:
+                    logging.exception(f"[TrialData] Exception during signal processing: {e}")
+                    continue
                 if result['valid'] and result['features'] is not None:
                     # Store features for classifier training
                     feature_vector = result['features'].get('csp_features')
@@ -365,6 +387,7 @@ class CalibrationSystem:
             # Update progress
             elapsed = time.time() - start_time
             progress = int((elapsed / self.trial_duration) * 100)
+            logging.debug(f"[TrialData] Progress update: stage={stage.name}, elapsed={elapsed:.2f}, progress={progress}%, current_time={time.time()}, trial_count={self.trial_count[stage]}")
             
             if stage == CalibrationStage.LEFT:
                 self._update_ui(f"Left hand trial {self.trial_count[stage]}/{self.num_trials}: {progress}%")
@@ -374,12 +397,15 @@ class CalibrationSystem:
         # Store the collected data
         if trial_chunks:
             trial_data = np.vstack(trial_chunks)
+            logging.info(f"[TrialData] Trial end: stage={stage.name}, trial_number={self.trial_count[stage]}, actual_samples={trial_data.shape[0]}, expected_duration={self.trial_duration}, actual_duration={time.time() - start_time:.2f}")
             if stage == CalibrationStage.LEFT:
                 self.left_data.append(trial_data)
                 logging.info(f"Collected left trial {self.trial_count[stage]}: {trial_data.shape[0]} samples")
             else:
                 self.right_data.append(trial_data)
                 logging.info(f"Collected right trial {self.trial_count[stage]}: {trial_data.shape[0]} samples")
+        else:
+            logging.warning(f"[TrialData] No data collected for trial: stage={stage.name}, trial_number={self.trial_count[stage]}")
     
     def _train_classifier(self) -> bool:
         """

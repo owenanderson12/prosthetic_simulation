@@ -36,10 +36,12 @@ class BCISystem:
         
         Args:
             config_dict: Configuration dictionary
-            source_type: Type of data source ("live" or "file")
+            source_type: Type of data source ("live", "file", or "artificial")
             source_path: Path to the source file (required for "file" source type)
         """
         self.config = config_dict
+        self.source_type = source_type
+        self.source_path = source_path
         self._setup_logging()
         
         # System state
@@ -48,10 +50,6 @@ class BCISystem:
         self.processing_enabled = False
         self._stop_event = threading.Event()
         self._processing_thread = None
-        
-        # Data source configuration
-        self.source_type = source_type
-        self.source_path = source_path
         
         # Initialize components
         logging.info("Initializing BCI system components...")
@@ -85,7 +83,7 @@ class BCISystem:
     def _initialize_modules(self) -> None:
         """Initialize all system modules."""
         try:
-            # Data Source (either live EEG or file)
+            # Data Source (supports live EEG, file, or artificial)
             self.data_source = DataSource(
                 self.config, 
                 source_type=self.source_type, 
@@ -101,7 +99,7 @@ class BCISystem:
             # Calibration System
             self.calibration = CalibrationSystem(
                 self.config,
-                self.data_source,  # Now using data_source instead of eeg_acquisition
+                self.data_source,
                 self.signal_processor,
                 self.classifier
             )
@@ -133,8 +131,9 @@ class BCISystem:
                 logging.error("Failed to connect to data source")
                 return False
             
-            # Start data acquisition in background
-            self.data_source.start_background_update()
+            # Start data acquisition in background (if supported)
+            if hasattr(self.data_source, 'start_background_update'):
+                self.data_source.start_background_update()
             
             # Start simulation interface
             if self.simulation:
@@ -179,7 +178,8 @@ class BCISystem:
         
         # Stop data acquisition
         if self.data_source:
-            self.data_source.stop_background_update()
+            if hasattr(self.data_source, 'stop_background_update'):
+                self.data_source.stop_background_update()
             self.data_source.disconnect()
         
         # Stop simulation if running
@@ -356,7 +356,7 @@ class BCISystem:
         Change the data source during runtime.
         
         Args:
-            source_type: Type of data source ("live" or "file")
+            source_type: Type of data source ("live", "file", or "artificial")
             source_path: Path to the source file (required for "file" source type)
             
         Returns:
@@ -369,7 +369,8 @@ class BCISystem:
         
         # Stop current data source
         if self.running:
-            self.data_source.stop_background_update()
+            if hasattr(self.data_source, 'stop_background_update'):
+                self.data_source.stop_background_update()
             self.data_source.disconnect()
         
         # Update source configuration
@@ -397,7 +398,8 @@ class BCISystem:
                 if not self.data_source.connect():
                     logging.error("Failed to connect to new data source")
                     return False
-                self.data_source.start_background_update()
+                if hasattr(self.data_source, 'start_background_update'):
+                    self.data_source.start_background_update()
             
             # Restart processing if it was running
             if was_processing:

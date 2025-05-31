@@ -33,6 +33,9 @@ ENV/
 *.swp
 *.swo
 
+# Log files generated during runtime
+bci_system.log
+
 # Data files that are too large or should not be version controlled
 # Uncomment if needed
 # *.csv
