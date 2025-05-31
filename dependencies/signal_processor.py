@@ -3,6 +3,12 @@ import logging
 from typing import Dict, List, Tuple, Optional
 from scipy import signal, linalg
 import mne
+import os
+import sys
+
+# Add parent directory to path to import config
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import config
 
 class SignalProcessor:
     """
@@ -17,31 +23,31 @@ class SignalProcessor:
     - Data normalization
     """
     
-    def __init__(self, config: Dict):
+    def __init__(self, config_dict: Dict):
         """
         Initialize the signal processor.
         
         Args:
-            config: Dictionary containing configuration parameters
+            config_dict: Dictionary containing configuration parameters
         """
-        self.config = config
+        self.config = config_dict
         
         # Parameters
-        self.sample_rate = config.get('SAMPLE_RATE', 250)
-        self.window_size = int(config.get('WINDOW_SIZE', 2.0) * self.sample_rate)
-        self.window_overlap = int(config.get('WINDOW_OVERLAP', 0.5) * self.sample_rate)
-        self.channels = config.get('EEG_CHANNELS', ['CH1', 'CH2', 'CH3', 'CH4', 'CH5', 'CH6', 'CH7', 'CH8'])
+        self.sample_rate = config_dict.get('SAMPLE_RATE', 250)
+        self.window_size = int(config_dict.get('WINDOW_SIZE', 2.0) * self.sample_rate)
+        self.window_overlap = int(config_dict.get('WINDOW_OVERLAP', 0.5) * self.sample_rate)
+        self.channels = config_dict.get('EEG_CHANNELS', ['CH1', 'CH2', 'CH3', 'CH4', 'CH5', 'CH6', 'CH7', 'CH8'])
         
         # Frequency bands
-        self.mu_band = config.get('MU_BAND', (8, 13))
-        self.beta_band = config.get('BETA_BAND', (13, 30))
+        self.mu_band = config_dict.get('MU_BAND', (8, 13))
+        self.beta_band = config_dict.get('BETA_BAND', (13, 30))
         
         # Motor imagery relevant channels (C3, CP1, C4, CP2)
-        self.mi_channels = config.get('MI_CHANNEL_INDICES', [2, 3, 5, 6])
+        self.mi_channels = config_dict.get('MI_CHANNEL_INDICES', [2, 3, 5, 6])
         
         # Filter design
-        self.filter_order = config.get('FILTER_ORDER', 4)
-        self.filter_band = config.get('FILTER_BAND', (1, 45))
+        self.filter_order = config_dict.get('FILTER_ORDER', 4)
+        self.filter_band = config_dict.get('FILTER_BAND', (1, 45))
         self._design_filters()
         
         # Baseline statistics
@@ -55,8 +61,8 @@ class SignalProcessor:
         self.csp_std = None
         
         # Artifact rejection thresholds
-        self.artifact_amplitude_threshold = config.get('ARTIFACT_AMPLITUDE_THRESHOLD', 100)  # μV
-        self.artifact_variance_threshold = config.get('ARTIFACT_VARIANCE_THRESHOLD', 30)    # μV²
+        self.artifact_amplitude_threshold = config_dict.get('ARTIFACT_AMPLITUDE_THRESHOLD', 100)  # μV
+        self.artifact_variance_threshold = config_dict.get('ARTIFACT_VARIANCE_THRESHOLD', 30)    # μV²
         
         # Flag for initialized state
         self.is_initialized = False
@@ -75,7 +81,7 @@ class SignalProcessor:
         )
         
         # Notch filter for power line noise (50/60 Hz)
-        line_freq = 50  # Adjust for your region (50 Hz in Europe, 60 Hz in US)
+        line_freq = 60  
         notch_low = (line_freq - 2) / nyquist
         notch_high = (line_freq + 2) / nyquist
         self.notch_b, self.notch_a = signal.butter(

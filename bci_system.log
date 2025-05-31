@@ -1,0 +1,15 @@
+2025-04-28 08:48:08,487 - root - INFO - Initializing BCI system components...
+2025-04-28 08:48:08,488 - root - INFO - File handler initialized with file: /Users/owenanderson/Documents/NeurEx/Projects/Prosthetics/neurofeedback/MI_Neurofeedback/data/raw/MI_EEG_20250423_191831.csv
+2025-04-28 08:48:08,488 - root - INFO - Data source initialized with type: file
+2025-04-28 08:48:08,488 - root - INFO - Classifier initialized with threshold: 0.65
+2025-04-28 08:48:08,490 - root - INFO - Created LSL marker stream: MI_MarkerStream
+2025-04-28 08:48:08,490 - root - INFO - Calibration system initialized
+2025-04-28 08:48:08,490 - root - INFO - Simulation interface initialized
+2025-04-28 08:48:08,490 - root - INFO - Visualization module initialized
+2025-04-28 08:48:08,491 - root - INFO - BCI system initialized
+2025-04-28 08:48:08,614 - root - INFO - Loaded CSV file with 147659 samples and 8 channels
+2025-04-28 08:48:08,615 - root - INFO - Loaded file with 147659 samples
+2025-04-28 08:48:08,615 - root - INFO - Started background file streaming thread
+2025-04-28 08:48:08,615 - root - INFO - LSL stream 'ProstheticControl' created
+2025-04-28 08:48:08,615 - root - INFO - Simulation update thread started
+2025-04-28 08:48:08,615 - root - INFO - Visualization callback set

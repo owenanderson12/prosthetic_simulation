@@ -2,10 +2,15 @@ import numpy as np
 import logging
 import pickle
 import os
+import sys
 from typing import Dict, List, Tuple, Optional, Union
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.model_selection import cross_val_score
 from collections import deque
+
+# Add parent directory to path to import config
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import config
 
 class Classifier:
     """
@@ -19,18 +24,18 @@ class Classifier:
     - Confidence estimation
     """
     
-    def __init__(self, config: Dict):
+    def __init__(self, config_dict: Dict):
         """
         Initialize the classifier.
         
         Args:
-            config: Dictionary containing configuration parameters
+            config_dict: Dictionary containing configuration parameters
         """
-        self.config = config
+        self.config = config_dict
         
         # Classification parameters
-        self.threshold = config.get('CLASSIFIER_THRESHOLD', 0.65)
-        self.min_confidence = config.get('MIN_CONFIDENCE', 0.55)
+        self.threshold = config_dict.get('CLASSIFIER_THRESHOLD', 0.65)
+        self.min_confidence = config_dict.get('MIN_CONFIDENCE', 0.55)
         
         # Classifier
         self.classifier = None
@@ -45,13 +50,13 @@ class Classifier:
         # Adaptive threshold variables
         self.performance_history = deque(maxlen=100)
         self.adaptive_threshold = self.threshold
-        self.use_adaptive_threshold = config.get('ADAPTIVE_THRESHOLD', True)
+        self.use_adaptive_threshold = config_dict.get('ADAPTIVE_THRESHOLD', True)
         
         # Features that were most recently used for classification
         self.last_features = None
         
         # Path for model saving/loading
-        self.model_dir = config.get('MODEL_DIR', 'models')
+        self.model_dir = config_dict.get('MODEL_DIR', 'models')
         os.makedirs(self.model_dir, exist_ok=True)
         
         # Logging initialized state
@@ -60,14 +65,16 @@ class Classifier:
     def train(self, 
               features_left: List[np.ndarray], 
               features_right: List[np.ndarray], 
-              shrinkage: Optional[float] = None) -> float:
+              shrinkage: Optional[Union[str, float]] = 'auto',
+              covariance_estimator: Optional[object] = None) -> float:
         """
         Train the LDA classifier on left vs. right motor imagery feature vectors.
         
         Args:
             features_left: List of feature vectors for left hand imagery
             features_right: List of feature vectors for right hand imagery
-            shrinkage: Shrinkage parameter for LDA (None for automatic)
+            shrinkage: Shrinkage parameter for LDA ('auto' or float value)
+            covariance_estimator: Custom covariance estimator (added in sklearn 0.24)
             
         Returns:
             Cross-validation accuracy score
@@ -84,8 +91,14 @@ class Classifier:
                 np.ones(len(features_right))   # 1 = right
             ])
             
-            # Create and train LDA classifier with shrinkage
-            self.classifier = LinearDiscriminantAnalysis(solver='lsqr', shrinkage=shrinkage)
+            # Create and train LDA classifier with updated parameters
+            self.classifier = LinearDiscriminantAnalysis(
+                solver='lsqr',
+                shrinkage=shrinkage,
+                covariance_estimator=covariance_estimator,
+                store_covariance=True,
+                tol=0.0001
+            )
             
             # Compute cross-validation score
             cv_scores = cross_val_score(self.classifier, X_train, y_train, cv=5)

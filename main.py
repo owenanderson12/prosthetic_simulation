@@ -7,7 +7,7 @@ prosthetic hand control system. It manages the signal acquisition, processing,
 classification, and simulation interface components.
 
 Usage:
-    python main.py [--calibrate] [--load-calibration FILE] [--config CONFIG_FILE]
+    python main.py [--calibrate] [--load-calibration FILE] [--config CONFIG_FILE] [--file-source FILE_PATH] [--visualize]
 """
 
 import os
@@ -50,6 +50,10 @@ def parse_arguments():
                       help='Load a saved calibration file')
     parser.add_argument('--config', type=str, metavar='CONFIG_FILE',
                       help='Path to an alternative configuration file')
+    parser.add_argument('--file-source', type=str, metavar='FILE_PATH',
+                      help='Use a pre-recorded EEG file as data source instead of live acquisition')
+    parser.add_argument('--visualize', action='store_true',
+                      help='Enable visualization of the prosthetic hand movements')
     
     return parser.parse_args()
 
@@ -92,13 +96,23 @@ def main():
     config_dict = load_config(args.config)
     
     try:
+        # Determine data source type
+        source_type = "file" if args.file_source else "live"
+        source_path = args.file_source if args.file_source else None
+        
         # Create BCI system
-        bci_system = BCISystem(config_dict)
+        bci_system = BCISystem(config_dict, source_type=source_type, source_path=source_path)
         
         # Start the system
         if not bci_system.start():
             print("Failed to start BCI system. Check logs for details.")
             return 1
+        
+        # If visualization is not needed and not explicitly requested, disable it
+        if not args.visualize and bci_system.visualization:
+            bci_system.visualization.stop()
+            bci_system.visualization = None
+            print("Visualization disabled. Use --visualize to enable it.")
         
         # Load calibration if specified
         if args.load_calibration:

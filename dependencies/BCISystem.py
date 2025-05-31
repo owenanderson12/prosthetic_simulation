@@ -18,22 +18,26 @@ DEPENDENCIES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dep
 sys.path.append(DEPENDENCIES_DIR)
 
 # Import module components
-from dependencies.eeg_acquisition import EEGAcquisition
+from dependencies.data_source import DataSource
 from dependencies.signal_processor import SignalProcessor
 from dependencies.classifier import Classifier
 from dependencies.calibration import CalibrationSystem, CalibrationStage
+from dependencies.simulation_interface import SimulationInterface
+from dependencies.visualization import Visualization
 
 class BCISystem:
     """
     Main BCI system class that orchestrates all components.
     """
     
-    def __init__(self, config_dict: Dict[str, Any]):
+    def __init__(self, config_dict: Dict[str, Any], source_type: str = "live", source_path: str = None):
         """
         Initialize the BCI system.
         
         Args:
             config_dict: Configuration dictionary
+            source_type: Type of data source ("live" or "file")
+            source_path: Path to the source file (required for "file" source type)
         """
         self.config = config_dict
         self._setup_logging()
@@ -45,9 +49,13 @@ class BCISystem:
         self._stop_event = threading.Event()
         self._processing_thread = None
         
+        # Data source configuration
+        self.source_type = source_type
+        self.source_path = source_path
+        
         # Initialize components
         logging.info("Initializing BCI system components...")
-        self.eeg_acquisition = None
+        self.data_source = None
         self.signal_processor = None
         self.classifier = None
         self.calibration = None
@@ -77,8 +85,12 @@ class BCISystem:
     def _initialize_modules(self) -> None:
         """Initialize all system modules."""
         try:
-            # EEG Acquisition
-            self.eeg_acquisition = EEGAcquisition(self.config)
+            # Data Source (either live EEG or file)
+            self.data_source = DataSource(
+                self.config, 
+                source_type=self.source_type, 
+                source_path=self.source_path
+            )
             
             # Signal Processor
             self.signal_processor = SignalProcessor(self.config)
@@ -89,16 +101,16 @@ class BCISystem:
             # Calibration System
             self.calibration = CalibrationSystem(
                 self.config,
-                self.eeg_acquisition,
+                self.data_source,  # Now using data_source instead of eeg_acquisition
                 self.signal_processor,
                 self.classifier
             )
             
-            # Simulation Interface (to be implemented)
-            # self.simulation = SimulationInterface(self.config)
+            # Simulation Interface
+            self.simulation = SimulationInterface(self.config)
             
-            # Visualization (to be implemented)
-            # self.visualization = Visualization(self.config)
+            # Visualization
+            self.visualization = Visualization(self.config, self.simulation)
             
         except Exception as e:
             logging.exception("Error initializing modules:")
@@ -116,17 +128,22 @@ class BCISystem:
             return False
         
         try:
-            # Connect to EEG stream
-            if not self.eeg_acquisition.connect():
-                logging.error("Failed to connect to EEG stream")
+            # Connect to data source
+            if not self.data_source.connect():
+                logging.error("Failed to connect to data source")
                 return False
             
-            # Start EEG acquisition in background
-            self.eeg_acquisition.start_background_update()
+            # Start data acquisition in background
+            self.data_source.start_background_update()
             
-            # Start simulation interface if available
-            # if self.simulation:
-            #     self.simulation.connect()
+            # Start simulation interface
+            if self.simulation:
+                self.simulation.create_stream()
+                self.simulation.start_update_thread()
+            
+            # Start visualization if available
+            if self.visualization:
+                self.visualization.start()
             
             # Reset stop event
             self._stop_event.clear()
@@ -160,14 +177,18 @@ class BCISystem:
             self.calibration.stop_calibration()
             self.calibration_mode = False
         
-        # Stop EEG acquisition
-        if self.eeg_acquisition:
-            self.eeg_acquisition.stop_background_update()
-            self.eeg_acquisition.disconnect()
+        # Stop data acquisition
+        if self.data_source:
+            self.data_source.stop_background_update()
+            self.data_source.disconnect()
         
         # Stop simulation if running
-        # if self.simulation:
-        #     self.simulation.disconnect()
+        if self.simulation:
+            self.simulation.disconnect()
+            
+        # Stop visualization if running
+        if self.visualization:
+            self.visualization.stop()
         
         self.running = False
         logging.info("BCI system stopped")
@@ -191,7 +212,7 @@ class BCISystem:
                 logging.error("Could not start the BCI system for calibration")
                 return False
         
-        # Give the EEG acquisition time to collect some initial data
+        # Give the data acquisition time to collect some initial data
         time.sleep(2.0)
         
         if self.calibration.start_calibration(callback):
@@ -264,7 +285,7 @@ class BCISystem:
             while not self._stop_event.is_set() and self.processing_enabled:
                 # Get the latest EEG data
                 window_size = int(self.config.get('WINDOW_SIZE', 2.0) * self.config.get('SAMPLE_RATE', 250))
-                data, timestamps = self.eeg_acquisition.get_chunk(window_size=window_size)
+                data, timestamps = self.data_source.get_chunk(window_size=window_size)
                 
                 if data.size == 0:
                     time.sleep(0.1)  # No data available, wait briefly
@@ -312,11 +333,79 @@ class BCISystem:
         # Log the classification at debug level
         logging.debug(f"Classification: {state}, Confidence: {confidence:.2f}")
         
-        # When simulation interface is implemented, send the command there
-        # if self.simulation:
-        #     self.simulation.send_command(state, confidence)
+        # Send command to simulation interface
+        if self.simulation:
+            self.simulation.send_command(classification_result)
         
-        # For now, just print the command to console if above threshold
+        # Also update visualization directly if needed
+        if self.visualization and not self.simulation:
+            self.visualization.update_state({
+                'class': state,
+                'confidence': confidence,
+                'hand_state': 1.0 if state == 'left' and confidence > self.config.get('MIN_CONFIDENCE', 0.55) else 0.5,
+                'wrist_state': 1.0 if state == 'right' and confidence > self.config.get('MIN_CONFIDENCE', 0.55) else 0.5
+            })
+        
+        # Print command to console if above threshold and not idle
         if state != 'idle' and confidence > self.config.get('CLASSIFIER_THRESHOLD', 0.65):
             command = "OPEN/CLOSE" if state == 'left' else "ROTATE"
             print(f"HAND COMMAND: {command} (confidence: {confidence:.2f})")
+    
+    def set_data_source(self, source_type: str, source_path: str = None) -> bool:
+        """
+        Change the data source during runtime.
+        
+        Args:
+            source_type: Type of data source ("live" or "file")
+            source_path: Path to the source file (required for "file" source type)
+            
+        Returns:
+            Success indicator
+        """
+        # Stop current processing
+        was_processing = self.processing_enabled
+        if was_processing:
+            self.stop_processing()
+        
+        # Stop current data source
+        if self.running:
+            self.data_source.stop_background_update()
+            self.data_source.disconnect()
+        
+        # Update source configuration
+        self.source_type = source_type
+        self.source_path = source_path
+        
+        # Reinitialize data source
+        try:
+            self.data_source = DataSource(
+                self.config, 
+                source_type=source_type, 
+                source_path=source_path
+            )
+            
+            # Update calibration system
+            self.calibration = CalibrationSystem(
+                self.config,
+                self.data_source,
+                self.signal_processor,
+                self.classifier
+            )
+            
+            # Reconnect if system was running
+            if self.running:
+                if not self.data_source.connect():
+                    logging.error("Failed to connect to new data source")
+                    return False
+                self.data_source.start_background_update()
+            
+            # Restart processing if it was running
+            if was_processing:
+                self.start_processing()
+                
+            logging.info(f"Data source changed to {source_type}")
+            return True
+            
+        except Exception as e:
+            logging.exception("Error changing data source:")
+            return False

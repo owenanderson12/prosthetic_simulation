@@ -9,29 +9,31 @@ from collections import deque
 import numpy as np
 from typing import Tuple, List, Optional, Dict
 
-from modules.config import *
+# Add parent directory to path to import config
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import config
 
 class EEGAcquisition:
     """
     EEG data acquisition module that connects to LSL EEG stream and provides real-time access
     to EEG data with quality monitoring and buffer management.
     """
-    def __init__(self, config: Dict):
+    def __init__(self, config_dict: Dict):
         """
         Initialize the EEG acquisition module.
         
         Args:
-            config: Dictionary containing configuration parameters
+            config_dict: Dictionary containing configuration parameters
         """
-        self.config = config
-        self.sample_rate = config.get('SAMPLE_RATE', 250)
-        self.eeg_stream_name = config.get('EEG_STREAM_NAME', 'OpenBCI_EEG')
-        self.buffer_size = config.get('BUFFER_SIZE', 2500)  # 10 seconds at 250Hz
-        self.connection_timeout = config.get('CONNECTION_TIMEOUT', 10)
-        self.channels = config.get('EEG_CHANNELS', ['CH1', 'CH2', 'CH3', 'CH4', 'CH5', 'CH6', 'CH7', 'CH8'])
+        self.config = config_dict
+        self.sample_rate = config_dict.get('SAMPLE_RATE', 250)
+        self.eeg_stream_name = config_dict.get('EEG_STREAM_NAME', 'OpenBCI_EEG')
+        self.buffer_size = config_dict.get('BUFFER_SIZE', 2500)  # 10 seconds at 250Hz
+        self.connection_timeout = config_dict.get('CONNECTION_TIMEOUT', 10)
+        self.channels = config_dict.get('EEG_CHANNELS', ['CH1', 'CH2', 'CH3', 'CH4', 'CH5', 'CH6', 'CH7', 'CH8'])
         
         # Channels of interest for motor imagery (C3, CP1, C4, CP2)
-        self.mi_channel_indices = config.get('MI_CHANNEL_INDICES', [2, 3, 5, 6])  # Adjust based on montage
+        self.mi_channel_indices = config_dict.get('MI_CHANNEL_INDICES', [2, 3, 5, 6])  # Adjust based on montage
         
         # Data buffer (numpy for efficient processing)
         self.buffer = np.zeros((self.buffer_size, len(self.channels)))
@@ -41,7 +43,7 @@ class EEGAcquisition:
         
         # Signal quality metrics
         self.signal_quality = {ch: 1.0 for ch in self.channels}  # 1.0 = perfect, 0.0 = unusable
-        self.quality_threshold = config.get('QUALITY_THRESHOLD', 0.6)
+        self.quality_threshold = config_dict.get('QUALITY_THRESHOLD', 0.6)
         
         # Connection status
         self.connected = False
@@ -58,8 +60,8 @@ class EEGAcquisition:
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         # Ensure data directory exists before creating files
-        os.makedirs(RAW_DATA_DIR, exist_ok=True)
-        self.output_csv = os.path.join(RAW_DATA_DIR, f"MI_EEG_{timestamp_str}.csv")
+        os.makedirs(config.RAW_DATA_DIR, exist_ok=True)
+        self.output_csv = os.path.join(config.RAW_DATA_DIR, f"MI_EEG_{timestamp_str}.csv")
         self.eeg_inlet = None
         self.marker_inlet = None
         self.clock_offset = 0.0
@@ -278,18 +280,18 @@ class EEGAcquisition:
         try:
             logging.info("Resolving EEG LSL stream...")
             from pylsl import resolve_byprop, StreamInlet
-            eeg_streams = resolve_byprop("name", EEG_STREAM_NAME, timeout=10)
+            eeg_streams = resolve_byprop("name", config.EEG_STREAM_NAME, timeout=10)
             if not eeg_streams:
-                logging.error(f"No EEG stream found with name '{EEG_STREAM_NAME}'. Exiting.")
+                logging.error(f"No EEG stream found with name '{config.EEG_STREAM_NAME}'. Exiting.")
                 sys.exit(1)
             self.eeg_inlet = StreamInlet(eeg_streams[0], max_buflen=360)
             self.clock_offset = self.eeg_inlet.time_correction()
             logging.info(f"Computed clock offset: {self.clock_offset:.6f} seconds")
 
             logging.info("Resolving Marker LSL stream...")
-            marker_streams = resolve_byprop("name", MARKER_STREAM_NAME, timeout=10)
+            marker_streams = resolve_byprop("name", config.MARKER_STREAM_NAME, timeout=10)
             if not marker_streams:
-                logging.error(f"No Marker stream found with name '{MARKER_STREAM_NAME}'. Exiting.")
+                logging.error(f"No Marker stream found with name '{config.MARKER_STREAM_NAME}'. Exiting.")
                 sys.exit(1)
             self.marker_inlet = StreamInlet(marker_streams[0], max_buflen=360)
 
@@ -304,7 +306,7 @@ class EEGAcquisition:
             if self.eeg_buffer and self.marker_buffer:
                 ts_eeg, eeg_data = self.eeg_buffer[0]
                 ts_marker, marker = self.marker_buffer[0]
-                if abs(ts_marker - ts_eeg) < MERGE_THRESHOLD:
+                if abs(ts_marker - ts_eeg) < config.MERGE_THRESHOLD:
                     row = [ts_eeg] + eeg_data + [marker]
                     writer.writerow(row)
                     self.eeg_buffer.popleft()
@@ -323,7 +325,7 @@ class EEGAcquisition:
                 writer.writerow(row)
             elif self.marker_buffer:
                 ts_marker, marker = self.marker_buffer.popleft()
-                row = [ts_marker] + ([""] * len(EEG_CHANNELS)) + [marker]
+                row = [ts_marker] + ([""] * len(config.EEG_CHANNELS)) + [marker]
                 writer.writerow(row)
 
     def run(self):
@@ -332,7 +334,7 @@ class EEGAcquisition:
         try:
             with open(self.output_csv, mode="w", newline="") as f:
                 writer = csv.writer(f)
-                header = ["lsl_timestamp"] + EEG_CHANNELS + ["marker"]
+                header = ["lsl_timestamp"] + config.EEG_CHANNELS + ["marker"]
                 writer.writerow(header)
                 while not self._stop_event.is_set():
                     try:
@@ -369,7 +371,7 @@ class EEGAcquisition:
                     while self.eeg_buffer and self.marker_buffer:
                         ts_eeg, eeg_data = self.eeg_buffer[0]
                         ts_marker, marker = self.marker_buffer[0]
-                        if abs(ts_marker - ts_eeg) < MERGE_THRESHOLD:
+                        if abs(ts_marker - ts_eeg) < config.MERGE_THRESHOLD:
                             row = [ts_eeg] + eeg_data + [marker]
                             writer.writerow(row)
                             self.eeg_buffer.popleft()
@@ -390,7 +392,7 @@ class EEGAcquisition:
                             row = [ts_eeg] + eeg_data + [""]
                             writer.writerow(row)
                             
-                    time.sleep(POLL_SLEEP)
+                    time.sleep(config.POLL_SLEEP)
                 logging.info("Stop event set. Flushing remaining data...")
                 self.flush_remaining(writer)
         except Exception as e:
