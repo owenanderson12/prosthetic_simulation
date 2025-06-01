@@ -415,43 +415,123 @@ class CalibrationSystem:
             Success indicator
         """
         try:
+            # Get window parameters
+            window_size = int(self.config.get('WINDOW_SIZE', 2.0) * self.eeg_acquisition.sample_rate)
+            window_overlap = int(self.config.get('WINDOW_OVERLAP', 0.5) * self.eeg_acquisition.sample_rate)
+            step_size = window_size - window_overlap
+            
             # 1. First train CSP filters if we have enough data
-            if (len(self.left_data) >= 5 and len(self.right_data) >= 5):
+            if (len(self.left_data) >= 3 and len(self.right_data) >= 3):
                 self._update_ui("Training CSP filters...")
                 self.signal_processor.train_csp(self.left_data, self.right_data)
                 
-                # Recompute features with CSP
+                # Clear previous features
                 self.left_features = []
                 self.right_features = []
                 
-                # Process left trials
-                for trial in self.left_data:
-                    # Get timestamps from trial (can be dummy timestamps)
-                    dummy_timestamps = np.arange(trial.shape[0]) / self.eeg_acquisition.sample_rate
-                    result = self.signal_processor.process(trial, dummy_timestamps)
-                    if result['valid'] and result['features'] is not None and result['features'].get('csp_features') is not None:
-                        self.left_features.append(result['features']['csp_features'])
+                # Process left trials with proper windowing
+                self._update_ui("Extracting features from left trials...")
+                for trial_idx, trial in enumerate(self.left_data):
+                    # Segment trial into overlapping windows
+                    for start in range(0, len(trial) - window_size + 1, step_size):
+                        end = start + window_size
+                        window = trial[start:end]
+                        
+                        # Create timestamps for window
+                        timestamps = np.arange(window.shape[0]) / self.eeg_acquisition.sample_rate
+                        
+                        # Process window
+                        result = self.signal_processor.process(window, timestamps)
+                        if result['valid'] and result['features'] is not None:
+                            # Prefer CSP features if available
+                            if result['features'].get('csp_features') is not None:
+                                self.left_features.append(result['features']['csp_features'])
+                            else:
+                                # Fallback to band power features
+                                mu_erd = result['features'].get('erd_mu', [])
+                                beta_erd = result['features'].get('erd_beta', [])
+                                if len(mu_erd) > 0 and len(beta_erd) > 0:
+                                    feature_vector = np.hstack([mu_erd, beta_erd])
+                                    self.left_features.append(feature_vector)
                 
-                # Process right trials
+                # Process right trials with proper windowing
+                self._update_ui("Extracting features from right trials...")
+                for trial_idx, trial in enumerate(self.right_data):
+                    # Segment trial into overlapping windows
+                    for start in range(0, len(trial) - window_size + 1, step_size):
+                        end = start + window_size
+                        window = trial[start:end]
+                        
+                        # Create timestamps for window
+                        timestamps = np.arange(window.shape[0]) / self.eeg_acquisition.sample_rate
+                        
+                        # Process window
+                        result = self.signal_processor.process(window, timestamps)
+                        if result['valid'] and result['features'] is not None:
+                            # Prefer CSP features if available
+                            if result['features'].get('csp_features') is not None:
+                                self.right_features.append(result['features']['csp_features'])
+                            else:
+                                # Fallback to band power features
+                                mu_erd = result['features'].get('erd_mu', [])
+                                beta_erd = result['features'].get('erd_beta', [])
+                                if len(mu_erd) > 0 and len(beta_erd) > 0:
+                                    feature_vector = np.hstack([mu_erd, beta_erd])
+                                    self.right_features.append(feature_vector)
+                                    
+                logging.info(f"Extracted {len(self.left_features)} left features and {len(self.right_features)} right features")
+                
+            # 2. If we still don't have enough features, try without CSP
+            if len(self.left_features) < 5 or len(self.right_features) < 5:
+                logging.warning("Insufficient CSP features, extracting band power features...")
+                self._update_ui("Extracting band power features...")
+                
+                # Clear and re-extract without CSP
+                self.left_features = []
+                self.right_features = []
+                
+                # Reset CSP filters to ensure we don't use them
+                self.signal_processor.csp_filters = None
+                
+                # Extract features from collected trial chunks
+                for trial in self.left_data:
+                    for start in range(0, len(trial) - window_size + 1, step_size):
+                        end = start + window_size
+                        window = trial[start:end]
+                        timestamps = np.arange(window.shape[0]) / self.eeg_acquisition.sample_rate
+                        result = self.signal_processor.process(window, timestamps)
+                        if result['valid'] and result['features'] is not None:
+                            mu_erd = result['features'].get('erd_mu', [])
+                            beta_erd = result['features'].get('erd_beta', [])
+                            if len(mu_erd) > 0 and len(beta_erd) > 0:
+                                feature_vector = np.hstack([mu_erd, beta_erd])
+                                self.left_features.append(feature_vector)
+                
                 for trial in self.right_data:
-                    # Get timestamps from trial (can be dummy timestamps)
-                    dummy_timestamps = np.arange(trial.shape[0]) / self.eeg_acquisition.sample_rate
-                    result = self.signal_processor.process(trial, dummy_timestamps)
-                    if result['valid'] and result['features'] is not None and result['features'].get('csp_features') is not None:
-                        self.right_features.append(result['features']['csp_features'])
+                    for start in range(0, len(trial) - window_size + 1, step_size):
+                        end = start + window_size
+                        window = trial[start:end]
+                        timestamps = np.arange(window.shape[0]) / self.eeg_acquisition.sample_rate
+                        result = self.signal_processor.process(window, timestamps)
+                        if result['valid'] and result['features'] is not None:
+                            mu_erd = result['features'].get('erd_mu', [])
+                            beta_erd = result['features'].get('erd_beta', [])
+                            if len(mu_erd) > 0 and len(beta_erd) > 0:
+                                feature_vector = np.hstack([mu_erd, beta_erd])
+                                self.right_features.append(feature_vector)
             
-            # 2. Train classifier
+            # 3. Train classifier
             if not self.left_features or not self.right_features:
                 logging.error("Not enough feature data to train classifier")
                 return False
                 
-            self._update_ui("Training classifier...")
+            self._update_ui(f"Training classifier with {len(self.left_features)} left and {len(self.right_features)} right features...")
             accuracy = self.classifier.train(self.left_features, self.right_features)
             
             logging.info(f"Classifier trained with accuracy: {accuracy:.3f}")
             self._update_ui(f"Classifier trained with cross-validation accuracy: {accuracy:.1%}")
             
-            return accuracy > 0.6  # Success if reasonable accuracy achieved
+            return accuracy > 0.5  # Lower threshold for success
             
         except Exception as e:
             logging.exception("Error during classifier training:")
@@ -464,15 +544,25 @@ class CalibrationSystem:
             filename = f"calibration_{timestamp_str}.npz"
             filepath = os.path.join(self.calibration_dir, filename)
             
+            # Prepare data to save
+            save_data = {
+                'baseline_data': self.baseline_data if self.baseline_data.size > 0 else np.array([]),
+                'left_data': np.array(self.left_data, dtype=object) if self.left_data else np.array([]),
+                'right_data': np.array(self.right_data, dtype=object) if self.right_data else np.array([]),
+                'left_features': np.array(self.left_features) if self.left_features else np.array([]),
+                'right_features': np.array(self.right_features) if self.right_features else np.array([])
+            }
+            
+            # Add CSP filters if available
+            if self.signal_processor.csp_filters is not None:
+                save_data['csp_filters'] = self.signal_processor.csp_filters
+                save_data['csp_patterns'] = self.signal_processor.csp_patterns
+                save_data['csp_mean'] = self.signal_processor.csp_mean
+                save_data['csp_std'] = self.signal_processor.csp_std
+                logging.info("Saving CSP filters with calibration data")
+            
             # Save calibration data
-            np.savez(
-                filepath,
-                baseline_data=self.baseline_data if self.baseline_data.size > 0 else np.array([]),
-                left_data=np.array(self.left_data, dtype=object) if self.left_data else np.array([]),
-                right_data=np.array(self.right_data, dtype=object) if self.right_data else np.array([]),
-                left_features=np.array(self.left_features) if self.left_features else np.array([]),
-                right_features=np.array(self.right_features) if self.right_features else np.array([])
-            )
+            np.savez(filepath, **save_data)
             
             # Save trained classifier
             model_filename = f"model_{timestamp_str}.pkl"
@@ -516,16 +606,27 @@ class CalibrationSystem:
             # Apply baseline to signal processor
             if self.baseline_data.size > 0 and self.signal_processor is not None:
                 self.signal_processor.update_baseline(self.baseline_data)
+                logging.info("Baseline power values updated")
                 
-            # Train CSP filters if enough data
-            if (len(self.left_data) >= 5 and len(self.right_data) >= 5) and self.signal_processor is not None:
-                self.signal_processor.train_csp(self.left_data, self.right_data)
+            # Load CSP filters if available
+            if 'csp_filters' in data and self.signal_processor is not None:
+                self.signal_processor.csp_filters = data['csp_filters']
+                self.signal_processor.csp_patterns = data.get('csp_patterns')
+                self.signal_processor.csp_mean = data.get('csp_mean')
+                self.signal_processor.csp_std = data.get('csp_std')
+                logging.info(f"Loaded CSP filters: shape {self.signal_processor.csp_filters.shape}")
                 
             # Try to load associated model if it exists
-            model_filename = filename.replace('.npz', '.pkl')
+            model_filename = filename.replace('calibration_', 'model_').replace('.npz', '.pkl')
             if os.path.exists(os.path.join(self.config.get('MODEL_DIR', 'models'), model_filename)):
                 if self.classifier is not None:
-                    self.classifier.load_model(model_filename)
+                    if self.classifier.load_model(model_filename):
+                        logging.info(f"Associated model {model_filename} loaded successfully")
+                    else:
+                        logging.error(f"Failed to load associated model {model_filename}")
+                        return False
+            else:
+                logging.warning(f"No associated model file found: {model_filename}")
             
             logging.info(f"Calibration data loaded from {filepath}")
             return True

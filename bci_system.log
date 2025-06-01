@@ -1,15 +1,35 @@
-2025-04-28 08:48:08,487 - root - INFO - Initializing BCI system components...
-2025-04-28 08:48:08,488 - root - INFO - File handler initialized with file: /Users/owenanderson/Documents/NeurEx/Projects/Prosthetics/neurofeedback/MI_Neurofeedback/data/raw/MI_EEG_20250423_191831.csv
-2025-04-28 08:48:08,488 - root - INFO - Data source initialized with type: file
-2025-04-28 08:48:08,488 - root - INFO - Classifier initialized with threshold: 0.65
-2025-04-28 08:48:08,490 - root - INFO - Created LSL marker stream: MI_MarkerStream
-2025-04-28 08:48:08,490 - root - INFO - Calibration system initialized
-2025-04-28 08:48:08,490 - root - INFO - Simulation interface initialized
-2025-04-28 08:48:08,490 - root - INFO - Visualization module initialized
-2025-04-28 08:48:08,491 - root - INFO - BCI system initialized
-2025-04-28 08:48:08,614 - root - INFO - Loaded CSV file with 147659 samples and 8 channels
-2025-04-28 08:48:08,615 - root - INFO - Loaded file with 147659 samples
-2025-04-28 08:48:08,615 - root - INFO - Started background file streaming thread
-2025-04-28 08:48:08,615 - root - INFO - LSL stream 'ProstheticControl' created
-2025-04-28 08:48:08,615 - root - INFO - Simulation update thread started
-2025-04-28 08:48:08,615 - root - INFO - Visualization callback set
+2025-06-01 19:03:09,276 - root - INFO - Initializing BCI system components...
+2025-06-01 19:03:09,276 - root - INFO - File handler initialized with file: data/raw/session_2/MI_EEG_20250325_195036.csv
+2025-06-01 19:03:09,277 - root - INFO - Data source initialized with type: file
+2025-06-01 19:03:09,277 - root - INFO - Classifier initialized with threshold: 0.60
+2025-06-01 19:03:09,281 - root - INFO - Created LSL marker stream: MI_MarkerStream
+2025-06-01 19:03:09,281 - root - INFO - Calibration system initialized
+2025-06-01 19:03:09,281 - root - INFO - Simulation interface initialized
+2025-06-01 19:03:09,281 - root - INFO - BCI system initialized
+2025-06-01 19:03:09,378 - root - DEBUG - Channel CH1: Raw range [-7713, -2794] -> μV range [-172.39, -62.46]
+2025-06-01 19:03:09,379 - root - DEBUG - Channel CH2: Raw range [-6929, 4646] -> μV range [-154.87, 103.85]
+2025-06-01 19:03:09,379 - root - DEBUG - Channel CH3: Raw range [-18473, -12426] -> μV range [-412.90, -277.74]
+2025-06-01 19:03:09,380 - root - DEBUG - Channel CH4: Raw range [2368, 5557] -> μV range [52.92, 124.21]
+2025-06-01 19:03:09,380 - root - DEBUG - Channel CH5: Raw range [15107, 19534] -> μV range [337.66, 436.62]
+2025-06-01 19:03:09,381 - root - DEBUG - Channel CH6: Raw range [-48293, -39923] -> μV range [-1079.43, -892.36]
+2025-06-01 19:03:09,381 - root - DEBUG - Channel CH7: Raw range [-7572, -1440] -> μV range [-169.25, -32.20]
+2025-06-01 19:03:09,382 - root - DEBUG - Channel CH8: Raw range [-17605, -13005] -> μV range [-393.50, -290.69]
+2025-06-01 19:03:09,383 - root - INFO - Loaded CSV file with 109146 samples and 8 channels (converted to μV)
+2025-06-01 19:03:09,383 - root - INFO - Loaded file with 109146 samples
+2025-06-01 19:03:09,383 - root - INFO - Started background file streaming thread
+2025-06-01 19:03:09,384 - root - INFO - LSL stream 'ProstheticControl' created
+2025-06-01 19:03:09,385 - root - INFO - Waiting for Unity connection...
+2025-06-01 19:03:09,385 - root - INFO - Waiting for Unity to connect...
+2025-06-01 19:03:09,385 - root - INFO - Checking for Unity ready signal...
+2025-06-01 19:03:09,385 - root - DEBUG - Error checking for Unity ready stream: resolve_stream() got an unexpected keyword argument 'timeout'
+2025-06-01 19:03:10,387 - root - DEBUG - Error checking for Unity ready stream: resolve_stream() got an unexpected keyword argument 'timeout'
+2025-06-01 19:03:11,391 - root - DEBUG - Error checking for Unity ready stream: resolve_stream() got an unexpected keyword argument 'timeout'
+2025-06-01 19:03:12,393 - root - DEBUG - Error checking for Unity ready stream: resolve_stream() got an unexpected keyword argument 'timeout'
+2025-06-01 19:03:13,397 - root - DEBUG - Error checking for Unity ready stream: resolve_stream() got an unexpected keyword argument 'timeout'
+2025-06-01 19:03:14,402 - root - DEBUG - Error checking for Unity ready stream: resolve_stream() got an unexpected keyword argument 'timeout'
+2025-06-01 19:03:15,407 - root - DEBUG - Error checking for Unity ready stream: resolve_stream() got an unexpected keyword argument 'timeout'
+2025-06-01 19:03:16,409 - root - DEBUG - Error checking for Unity ready stream: resolve_stream() got an unexpected keyword argument 'timeout'
+2025-06-01 19:03:17,414 - root - DEBUG - Error checking for Unity ready stream: resolve_stream() got an unexpected keyword argument 'timeout'
+2025-06-01 19:03:18,415 - root - DEBUG - Error checking for Unity ready stream: resolve_stream() got an unexpected keyword argument 'timeout'
+2025-06-01 19:03:19,419 - root - INFO - Checking for outlet consumers...
+2025-06-01 19:03:39,415 - root - WARNING - Unity did not connect within 30.0 seconds

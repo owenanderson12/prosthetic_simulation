@@ -3,48 +3,48 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		02F7432BA4415FC9686330F0 /* libmonobdwgc-2.0.dylib in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 521B42A6A80A70D2D458ABF4 /* libmonobdwgc-2.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		158C4B088B7E96CD7B1E03B5 /* MonoBleedingEdge in CopyFiles */ = {isa = PBXBuildFile; fileRef = CE5A4AAABBFCB3D80410D9E5 /* MonoBleedingEdge */; };
-		22CB46D29EB15819BBEE5BB5 /* libMonoPosixHelper.dylib in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E7B84E0DA966B23D564548C6 /* libMonoPosixHelper.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		3F12430A8CB661E7E20C0B9C /* lib_burst_generated.bundle in CopyPlugIns */ = {isa = PBXBuildFile; fileRef = 03EF44B3B3CDB0AFA585149C /* lib_burst_generated.bundle */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		4C8F42F6B89C8DA4CA773591 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8CA242EB97AA483199AB551F /* PrivacyInfo.xcprivacy */; };
+		114348C6892A681CE276C57A /* libmono-native.dylib in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A3C24CE19C8EA0C08A684DD2 /* libmono-native.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		193C46AD9FAD7B15555580BC /* libmonobdwgc-2.0.dylib in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C4D049A8B3F42ACDF1E19CEE /* libmonobdwgc-2.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		68924620A5C1A93AE2ADCF5E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C921466C8315A5223915D608 /* PrivacyInfo.xcprivacy */; };
 		750575B4214B38CE004B1B34 /* UnityPlayer.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 750575B3214B38CE004B1B34 /* UnityPlayer.dylib */; };
 		750575B5214B3DF2004B1B34 /* UnityPlayer.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 750575B3214B38CE004B1B34 /* UnityPlayer.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		752CA83E2149E6C400295EFC /* Main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 752CA83D2149E6C400295EFC /* Main.cpp */; };
 		75E7179121715210002B2479 /* DefaultPreferences.plist in Resources */ = {isa = PBXBuildFile; fileRef = 75E7178E21715210002B2479 /* DefaultPreferences.plist */; };
 		75E7179221715210002B2479 /* Data in Resources */ = {isa = PBXBuildFile; fileRef = 75E7178F21715210002B2479 /* Data */; };
 		75E7179321715210002B2479 /* PlayerIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 75E7179021715210002B2479 /* PlayerIcon.icns */; };
+		7EEC43FC9AD7870E57CB340A /* lib_burst_generated.bundle in CopyPlugIns */ = {isa = PBXBuildFile; fileRef = 859F48DFA1197F29D880263B /* lib_burst_generated.bundle */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		8CD649AFA17FFA97302684D6 /* libMonoPosixHelper.dylib in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 70374194B687AB5F56CF3C17 /* libMonoPosixHelper.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		ACA24453B7B2268FF47A50A3 /* MonoBleedingEdge in CopyFiles */ = {isa = PBXBuildFile; fileRef = CF9146B79F4BF3DD301944B6 /* MonoBleedingEdge */; };
 		CDD5792C240E027400DEA632 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = CDD5792B240E027400DEA632 /* MainMenu.nib */; };
-		ED374A3DB546724BA797676E /* libmono-native.dylib in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A4634D39B51EA07342AB65A7 /* libmono-native.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		1CAC4375BE420EDAD5CE536E /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = Contents;
-			dstSubfolderSpec = 1;
-			files = (
-				158C4B088B7E96CD7B1E03B5 /* MonoBleedingEdge in CopyFiles */,
-			);
-			name = CopyFiles;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		53324BE3994E62E92B19A41F /* Embed Frameworks */ = {
+		1AC5437F907E226B07872C2E /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				02F7432BA4415FC9686330F0 /* libmonobdwgc-2.0.dylib in Embed Frameworks */,
-				22CB46D29EB15819BBEE5BB5 /* libMonoPosixHelper.dylib in Embed Frameworks */,
-				ED374A3DB546724BA797676E /* libmono-native.dylib in Embed Frameworks */,
+				193C46AD9FAD7B15555580BC /* libmonobdwgc-2.0.dylib in Embed Frameworks */,
+				8CD649AFA17FFA97302684D6 /* libMonoPosixHelper.dylib in Embed Frameworks */,
+				114348C6892A681CE276C57A /* libmono-native.dylib in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5DA248A29E76D19B7A3F5A6B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents;
+			dstSubfolderSpec = 1;
+			files = (
+				ACA24453B7B2268FF47A50A3 /* MonoBleedingEdge in CopyFiles */,
+			);
+			name = CopyFiles;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		750575B6214B3DF2004B1B34 /* Embed Libraries */ = {
@@ -58,13 +58,13 @@
 			name = "Embed Libraries";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		FEF5498E8BF229ED92845E22 /* CopyPlugIns */ = {
+		7D9640F69D760FD9D00096FA /* CopyPlugIns */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				3F12430A8CB661E7E20C0B9C /* lib_burst_generated.bundle in CopyPlugIns */,
+				7EEC43FC9AD7870E57CB340A /* lib_burst_generated.bundle in CopyPlugIns */,
 			);
 			name = CopyPlugIns;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -72,9 +72,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		03EF44B3B3CDB0AFA585149C /* lib_burst_generated.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; name = lib_burst_generated.bundle; path = prosthetic/PlugIns/lib_burst_generated.bundle; sourceTree = SOURCE_ROOT; };
-		4059438EBE571638140C76A0 /* ApplePrivacyManifestsMerge.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = ApplePrivacyManifestsMerge.txt; path = prosthetic/ApplePrivacyManifestsMerge.txt; sourceTree = SOURCE_ROOT; };
-		521B42A6A80A70D2D458ABF4 /* libmonobdwgc-2.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libmonobdwgc-2.0.dylib"; path = "prosthetic/Frameworks/libmonobdwgc-2.0.dylib"; sourceTree = SOURCE_ROOT; };
+		075747DEB0930C6F3F5919CE /* ApplePrivacyManifestsMerge.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = ApplePrivacyManifestsMerge.txt; path = prosthetic/ApplePrivacyManifestsMerge.txt; sourceTree = SOURCE_ROOT; };
+		70374194B687AB5F56CF3C17 /* libMonoPosixHelper.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libMonoPosixHelper.dylib; path = prosthetic/Frameworks/libMonoPosixHelper.dylib; sourceTree = SOURCE_ROOT; };
 		750575B3214B38CE004B1B34 /* UnityPlayer.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = UnityPlayer.dylib; path = prosthetic/Frameworks/UnityPlayer.dylib; sourceTree = "<group>"; };
 		752CA8282149E6C100295EFC /* prosthetic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = prosthetic.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		752CA83C2149E6C400295EFC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -82,12 +81,17 @@
 		75E7178E21715210002B2479 /* DefaultPreferences.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = DefaultPreferences.plist; path = prosthetic/Resources/DefaultPreferences.plist; sourceTree = "<group>"; };
 		75E7178F21715210002B2479 /* Data */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Data; path = prosthetic/Resources/Data; sourceTree = "<group>"; };
 		75E7179021715210002B2479 /* PlayerIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = PlayerIcon.icns; path = prosthetic/Resources/PlayerIcon.icns; sourceTree = "<group>"; };
-		8CA242EB97AA483199AB551F /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = PrivacyInfo.xcprivacy; name = PrivacyInfo.xcprivacy; path = prosthetic/PrivacyInfo.xcprivacy; sourceTree = SOURCE_ROOT; };
-		A4634D39B51EA07342AB65A7 /* libmono-native.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libmono-native.dylib"; path = "prosthetic/Frameworks/libmono-native.dylib"; sourceTree = SOURCE_ROOT; };
+		859F48DFA1197F29D880263B /* lib_burst_generated.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; name = lib_burst_generated.bundle; path = prosthetic/PlugIns/lib_burst_generated.bundle; sourceTree = SOURCE_ROOT; };
+		A3C24CE19C8EA0C08A684DD2 /* libmono-native.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libmono-native.dylib"; path = "prosthetic/Frameworks/libmono-native.dylib"; sourceTree = SOURCE_ROOT; };
+		C4D049A8B3F42ACDF1E19CEE /* libmonobdwgc-2.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libmonobdwgc-2.0.dylib"; path = "prosthetic/Frameworks/libmonobdwgc-2.0.dylib"; sourceTree = SOURCE_ROOT; };
+		C921466C8315A5223915D608 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = PrivacyInfo.xcprivacy; name = PrivacyInfo.xcprivacy; path = prosthetic/PrivacyInfo.xcprivacy; sourceTree = SOURCE_ROOT; };
 		CDD5792B240E027400DEA632 /* MainMenu.nib */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = MainMenu.nib; path = prosthetic/Resources/MainMenu.nib; sourceTree = "<group>"; };
-		CE5A4AAABBFCB3D80410D9E5 /* MonoBleedingEdge */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MonoBleedingEdge; path = prosthetic/MonoBleedingEdge; sourceTree = SOURCE_ROOT; };
-		E7B84E0DA966B23D564548C6 /* libMonoPosixHelper.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libMonoPosixHelper.dylib; path = prosthetic/Frameworks/libMonoPosixHelper.dylib; sourceTree = SOURCE_ROOT; };
+		CF9146B79F4BF3DD301944B6 /* MonoBleedingEdge */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MonoBleedingEdge; path = prosthetic/MonoBleedingEdge; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		4D5A23372DED1289005AEB39 /* macOS */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = macOS; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		752CA8252149E6C100295EFC /* Frameworks */ = {
@@ -101,6 +105,16 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0A3D456EA21D9248992E0A16 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C4D049A8B3F42ACDF1E19CEE /* libmonobdwgc-2.0.dylib */,
+				70374194B687AB5F56CF3C17 /* libMonoPosixHelper.dylib */,
+				A3C24CE19C8EA0C08A684DD2 /* libmono-native.dylib */,
+			);
+			path = Frameworks;
+			sourceTree = "<group>";
+		};
 		750575B2214B38CE004B1B34 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -132,11 +146,11 @@
 			children = (
 				752CA83C2149E6C400295EFC /* Info.plist */,
 				752CA83D2149E6C400295EFC /* Main.cpp */,
-				B0C14ACEB9C834873E1E1955 /* PlugIns */,
-				8CA242EB97AA483199AB551F /* PrivacyInfo.xcprivacy */,
-				4059438EBE571638140C76A0 /* ApplePrivacyManifestsMerge.txt */,
-				99E64C23AB8FB4710E51CD7A /* Frameworks */,
-				CE5A4AAABBFCB3D80410D9E5 /* MonoBleedingEdge */,
+				8B114D5EB48CB23AF2488478 /* PlugIns */,
+				C921466C8315A5223915D608 /* PrivacyInfo.xcprivacy */,
+				075747DEB0930C6F3F5919CE /* ApplePrivacyManifestsMerge.txt */,
+				0A3D456EA21D9248992E0A16 /* Frameworks */,
+				CF9146B79F4BF3DD301944B6 /* MonoBleedingEdge */,
 			);
 			path = prosthetic;
 			sourceTree = "<group>";
@@ -152,20 +166,11 @@
 			name = Resources;
 			sourceTree = "<group>";
 		};
-		99E64C23AB8FB4710E51CD7A /* Frameworks */ = {
+		8B114D5EB48CB23AF2488478 /* PlugIns */ = {
 			isa = PBXGroup;
 			children = (
-				521B42A6A80A70D2D458ABF4 /* libmonobdwgc-2.0.dylib */,
-				E7B84E0DA966B23D564548C6 /* libMonoPosixHelper.dylib */,
-				A4634D39B51EA07342AB65A7 /* libmono-native.dylib */,
-			);
-			path = Frameworks;
-			sourceTree = "<group>";
-		};
-		B0C14ACEB9C834873E1E1955 /* PlugIns */ = {
-			isa = PBXGroup;
-			children = (
-				03EF44B3B3CDB0AFA585149C /* lib_burst_generated.bundle */,
+				4D5A23372DED1289005AEB39 /* macOS */,
+				859F48DFA1197F29D880263B /* lib_burst_generated.bundle */,
 			);
 			path = PlugIns;
 			sourceTree = "<group>";
@@ -181,13 +186,16 @@
 				752CA8252149E6C100295EFC /* Frameworks */,
 				752CA8262149E6C100295EFC /* Resources */,
 				750575B6214B3DF2004B1B34 /* Embed Libraries */,
-				FEF5498E8BF229ED92845E22 /* CopyPlugIns */,
-				53324BE3994E62E92B19A41F /* Embed Frameworks */,
-				1CAC4375BE420EDAD5CE536E /* CopyFiles */,
+				7D9640F69D760FD9D00096FA /* CopyPlugIns */,
+				1AC5437F907E226B07872C2E /* Embed Frameworks */,
+				5DA248A29E76D19B7A3F5A6B /* CopyFiles */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				4D5A23372DED1289005AEB39 /* macOS */,
 			);
 			name = prosthetic;
 			productName = prosthetic;
@@ -236,7 +244,7 @@
 				CDD5792C240E027400DEA632 /* MainMenu.nib in Resources */,
 				75E7179221715210002B2479 /* Data in Resources */,
 				75E7179321715210002B2479 /* PlayerIcon.icns in Resources */,
-				4C8F42F6B89C8DA4CA773591 /* PrivacyInfo.xcprivacy in Resources */,
+				68924620A5C1A93AE2ADCF5E /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -364,11 +372,16 @@
 		752CA8432149E6C400295EFC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = 3HBVGS4WKT;
 				INFOPLIST_FILE = prosthetic/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/prosthetic/PlugIns/macOS",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.Unity-Technologies.com.unity.template.urp-blank";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -381,11 +394,16 @@
 		752CA8442149E6C400295EFC /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = 3HBVGS4WKT;
 				INFOPLIST_FILE = prosthetic/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/prosthetic/PlugIns/macOS",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.Unity-Technologies.com.unity.template.urp-blank";
 				PRODUCT_NAME = "$(TARGET_NAME)";

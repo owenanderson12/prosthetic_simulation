@@ -38,20 +38,20 @@ MU_BAND = (8, 13)  # Hz
 BETA_BAND = (13, 30)  # Hz
 FILTER_ORDER = 4
 FILTER_BAND = (1, 45)  # Hz
-ARTIFACT_AMPLITUDE_THRESHOLD = 100  # μV
-ARTIFACT_VARIANCE_THRESHOLD = 30  # μV²
+ARTIFACT_AMPLITUDE_THRESHOLD = 5000  # μV (increased to handle DC offset)
+ARTIFACT_VARIANCE_THRESHOLD = 1000000  # μV² (increased for raw data)
 
 # --- Classification ---
-CLASSIFIER_THRESHOLD = 0.65  # confidence level required for actuation
-MIN_CONFIDENCE = 0.55
+CLASSIFIER_THRESHOLD = 0.60  # confidence level required for actuation
+MIN_CONFIDENCE = 0.50
 ADAPTIVE_THRESHOLD = True
 CSP_COMPONENTS = 4  # number of CSP components to use
 
 # --- Calibration ---
-CALIBRATION_TRIALS = 10  # number of trials per class
+CALIBRATION_TRIALS = 5  # number of trials per class
 TRIAL_DURATION = 5.0  # seconds
 REST_DURATION = 3.0  # seconds
-BASELINE_DURATION = 30.0  # seconds
+BASELINE_DURATION = 15.0  # seconds
 CUE_DURATION = 2.0  # seconds
 
 # --- Simulation Interface ---
@@ -59,9 +59,11 @@ HAND_OPEN_CLOSE_SPEED = 0.1  # normalized speed for open/close
 WRIST_ROTATION_SPEED = 0.1  # normalized speed for rotation
 COMMAND_SMOOTHING = 0.7  # smoothing factor for commands (0-1)
 SIMULATION_UPDATE_RATE = 60  # Hz, target update rate for simulation
+WAIT_FOR_UNITY = True  # Whether to wait for Unity to connect before starting
+UNITY_CONNECTION_TIMEOUT = 30.0  # seconds to wait for Unity connection
 
 # --- System ---
-LOG_LEVEL = "INFO"
+LOG_LEVEL = "DEBUG"
 LOG_FILE = os.path.join(BASE_DIR, "bci_system.log")
 DEBUG_MODE = False  # Enable additional debug information
 

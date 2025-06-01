@@ -30,7 +30,7 @@ class BCISystem:
     Main BCI system class that orchestrates all components.
     """
     
-    def __init__(self, config_dict: Dict[str, Any], source_type: str = "live", source_path: str = None):
+    def __init__(self, config_dict: Dict[str, Any], source_type: str = "live", source_path: str = None, enable_visualization: bool = False):
         """
         Initialize the BCI system.
         
@@ -38,10 +38,12 @@ class BCISystem:
             config_dict: Configuration dictionary
             source_type: Type of data source ("live", "file", or "artificial")
             source_path: Path to the source file (required for "file" source type)
+            enable_visualization: Whether to enable the visualization component
         """
         self.config = config_dict
         self.source_type = source_type
         self.source_path = source_path
+        self.enable_visualization = enable_visualization
         self._setup_logging()
         
         # System state
@@ -107,8 +109,9 @@ class BCISystem:
             # Simulation Interface
             self.simulation = SimulationInterface(self.config)
             
-            # Visualization
-            self.visualization = Visualization(self.config, self.simulation)
+            # Visualization (only if enabled)
+            if self.enable_visualization:
+                self.visualization = Visualization(self.config, self.simulation)
             
         except Exception as e:
             logging.exception("Error initializing modules:")
@@ -138,6 +141,18 @@ class BCISystem:
             # Start simulation interface
             if self.simulation:
                 self.simulation.create_stream()
+                
+                # Wait for Unity to connect (optional based on config)
+                wait_for_unity = self.config.get('WAIT_FOR_UNITY', True)
+                unity_timeout = self.config.get('UNITY_CONNECTION_TIMEOUT', 30.0)
+                
+                if wait_for_unity:
+                    logging.info("Waiting for Unity connection...")
+                    if not self.simulation.wait_for_unity_connection(timeout=unity_timeout):
+                        logging.error("Unity connection failed or was cancelled by user")
+                        return False
+                    logging.info("Unity connection established!")
+                
                 self.simulation.start_update_thread()
             
             # Start visualization if available
@@ -410,4 +425,4 @@ class BCISystem:
             
         except Exception as e:
             logging.exception("Error changing data source:")
-            return False
+            return False 

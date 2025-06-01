@@ -115,11 +115,32 @@ class FileHandler:
             # Extract timestamps
             self.timestamps_full = df['lsl_timestamp'].values
             
+            # OpenBCI conversion constants
+            # Cyton board: 24-bit ADC, gain = 24, Vref = 4.5V
+            ADC_24BIT = 2**23 - 1  # 8388607
+            GAIN = 24.0
+            VREF = 4.5  # Volts
+            
+            # Conversion factor to microvolts
+            # (Vref / Gain / ADC_max) * 1e6 to convert to microvolts
+            scale_factor = (VREF / GAIN / ADC_24BIT) * 1e6
+            
             # Extract EEG data
             channel_data = []
             for ch in self.channels:
                 if ch in df.columns:
-                    channel_data.append(df[ch].values)
+                    raw_values = df[ch].values
+                    
+                    # Convert from raw ADC to microvolts
+                    # Handle NaN values
+                    mask = ~np.isnan(raw_values)
+                    converted_values = np.zeros_like(raw_values)
+                    converted_values[mask] = raw_values[mask] * scale_factor
+                    converted_values[~mask] = 0.0  # Replace NaN with 0
+                    
+                    channel_data.append(converted_values)
+                    logging.debug(f"Channel {ch}: Raw range [{np.nanmin(raw_values):.0f}, {np.nanmax(raw_values):.0f}] -> "
+                                f"μV range [{np.min(converted_values[mask]):.2f}, {np.max(converted_values[mask]):.2f}]")
                 else:
                     # If channel not found, use zeros
                     logging.warning(f"Channel {ch} not found in CSV, using zeros")
@@ -132,7 +153,7 @@ class FileHandler:
             if 'marker' in df.columns:
                 self.markers = df['marker'].values
             
-            logging.info(f"Loaded CSV file with {len(df)} samples and {len(channel_data)} channels")
+            logging.info(f"Loaded CSV file with {len(df)} samples and {len(channel_data)} channels (converted to μV)")
             
         except Exception as e:
             logging.exception("Error loading CSV file:")

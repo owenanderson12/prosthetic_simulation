@@ -43,10 +43,8 @@ from dependencies.signal_processor import SignalProcessor
 from dependencies.classifier import Classifier
 from dependencies.calibration import CalibrationSystem, CalibrationStage
 from dependencies.BCISystem import BCISystem
-# The simulation interface will be imported when you implement it
-# from simulation_interface import SimulationInterface
-# Same for visualization
-# from visualization import Visualization
+from dependencies.visualization import Visualization
+from dependencies.simulation_interface import SimulationInterface
 
 def parse_arguments():
     """Parse command line arguments."""
@@ -64,6 +62,8 @@ def parse_arguments():
                       help='Enable visualization of the prosthetic hand movements')
     parser.add_argument('--source-type', type=str, choices=['live', 'artificial'], default='live',
                       help='EEG data source type: live or artificial (default: live)')
+    parser.add_argument('--no-wait-unity', action='store_true',
+                      help='Skip waiting for Unity connection and start immediately')
     
     return parser.parse_args()
 
@@ -105,6 +105,10 @@ def main():
     # Load configuration
     config_dict = load_config(args.config)
     
+    # Override Unity wait setting if specified
+    if args.no_wait_unity:
+        config_dict['WAIT_FOR_UNITY'] = False
+    
     try:
         # Determine data source type and path
         if args.file_source:
@@ -117,18 +121,12 @@ def main():
             source_path = None
         
         # Create BCI system
-        bci_system = BCISystem(config_dict, source_type=source_type, source_path=source_path)
+        bci_system = BCISystem(config_dict, source_type=source_type, source_path=source_path, enable_visualization=args.visualize)
         
         # Start the system
         if not bci_system.start():
             print("Failed to start BCI system. Check logs for details.")
             return 1
-        
-        # If visualization is not needed and not explicitly requested, disable it
-        if not args.visualize and bci_system.visualization:
-            bci_system.visualization.stop()
-            bci_system.visualization = None
-            print("Visualization disabled. Use --visualize to enable it.")
         
         # Load calibration if specified
         if args.load_calibration:

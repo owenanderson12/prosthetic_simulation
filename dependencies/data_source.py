@@ -54,7 +54,7 @@ class ArtificialEEGSource:
         if channels is not None:
             data = data[:, channels]
         return data, timestamps
-    
+
     def get_motor_imagery_data(self, window_size: int = 500) -> Tuple[np.ndarray, np.ndarray]:
         """Get motor imagery channels data."""
         mi_channels = self.config.get('MI_CHANNEL_INDICES', [2, 3, 5, 6])
@@ -215,7 +215,7 @@ class DataSource:
         """Reset the data buffer."""
         if self.data_acquisition:
             self.data_acquisition.reset_buffer()
-    
+
     @property
     def sample_rate(self):
         """Get the sample rate from the data source"""
