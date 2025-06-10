@@ -115,32 +115,20 @@ class FileHandler:
             # Extract timestamps
             self.timestamps_full = df['lsl_timestamp'].values
             
-            # OpenBCI conversion constants
-            # Cyton board: 24-bit ADC, gain = 24, Vref = 4.5V
-            ADC_24BIT = 2**23 - 1  # 8388607
-            GAIN = 24.0
-            VREF = 4.5  # Volts
+            # Use raw ADC values to match training pipeline (preprocessing handles scaling)
+            logging.info("Loading raw ADC values to match training data pipeline")
             
-            # Conversion factor to microvolts
-            # (Vref / Gain / ADC_max) * 1e6 to convert to microvolts
-            scale_factor = (VREF / GAIN / ADC_24BIT) * 1e6
-            
-            # Extract EEG data
+            # Extract EEG data as raw ADC values (same as training preprocessing)
             channel_data = []
             for ch in self.channels:
                 if ch in df.columns:
                     raw_values = df[ch].values
-                    
-                    # Convert from raw ADC to microvolts
                     # Handle NaN values
                     mask = ~np.isnan(raw_values)
-                    converted_values = np.zeros_like(raw_values)
-                    converted_values[mask] = raw_values[mask] * scale_factor
-                    converted_values[~mask] = 0.0  # Replace NaN with 0
-                    
-                    channel_data.append(converted_values)
-                    logging.debug(f"Channel {ch}: Raw range [{np.nanmin(raw_values):.0f}, {np.nanmax(raw_values):.0f}] -> "
-                                f"μV range [{np.min(converted_values[mask]):.2f}, {np.max(converted_values[mask]):.2f}]")
+                    clean_values = np.zeros_like(raw_values)
+                    clean_values[mask] = raw_values[mask]
+                    clean_values[~mask] = 0.0  # Replace NaN with 0
+                    channel_data.append(clean_values)
                 else:
                     # If channel not found, use zeros
                     logging.warning(f"Channel {ch} not found in CSV, using zeros")
@@ -153,7 +141,7 @@ class FileHandler:
             if 'marker' in df.columns:
                 self.markers = df['marker'].values
             
-            logging.info(f"Loaded CSV file with {len(df)} samples and {len(channel_data)} channels (converted to μV)")
+            logging.info(f"Loaded CSV file with {len(df)} samples and {len(channel_data)} channels (raw ADC values)")
             
         except Exception as e:
             logging.exception("Error loading CSV file:")
@@ -242,6 +230,12 @@ class FileHandler:
                 logging.warning("Could not extract events from the data")
                 
             logging.info(f"Loaded {self.file_extension} file with {len(self.raw_data)} samples and {self.raw_data.shape[1]} channels")
+            
+            # Apply grand average reference
+            referenced_data = apply_grand_average_reference(raw_data)
+            
+            # Store the processed data
+            self.data_full = referenced_data
             
         except ImportError:
             logging.error("Could not import MNE. Please install with: pip install mne")

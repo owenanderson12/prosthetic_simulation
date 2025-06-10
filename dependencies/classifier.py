@@ -6,6 +6,7 @@ import sys
 from typing import Dict, List, Tuple, Optional, Union
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.model_selection import cross_val_score
+from sklearn.pipeline import Pipeline
 from collections import deque
 
 # Add parent directory to path to import config
@@ -17,7 +18,7 @@ class Classifier:
     Classifier module for EEG-based motor imagery classification.
     
     Implements:
-    - LDA with shrinkage for left vs. right motor imagery classification
+    - Support for both LDA and sklearn pipeline models (e.g., Random Forest)
     - Continuous probability estimation
     - Decision smoothing via state machine
     - Adaptive thresholding
@@ -39,6 +40,7 @@ class Classifier:
         
         # Classifier
         self.classifier = None
+        self.model_type = None  # 'lda' or 'pipeline'
         self.classes = ['left', 'right']  # Class labels
         self.class_map = {0: 'left', 1: 'right'}  # Map indices to class labels
         
@@ -99,6 +101,7 @@ class Classifier:
                 store_covariance=True,
                 tol=0.0001
             )
+            self.model_type = 'lda'
             
             # Compute cross-validation score
             cv_scores = cross_val_score(self.classifier, X_train, y_train, cv=5)
@@ -144,27 +147,30 @@ class Classifier:
                     'message': 'Classifier not trained'
                 }
             
-            # Check if we have CSP features
-            if features.get('csp_features') is not None:
-                feature_vector = features['csp_features']
-            else:
-                # Fallback to basic features
-                # Construct feature vector from ERD/ERS values
-                mu_erd = features.get('erd_mu', [0])
-                beta_erd = features.get('erd_beta', [0])
-                
-                # Focus on motor imagery channels
-                feature_vector = np.hstack([
-                    mu_erd,
-                    beta_erd
-                ])
+            # Prepare feature vector based on what's available
+            feature_vector = self._prepare_feature_vector(features)
+            
+            if feature_vector is None:
+                return {
+                    'class': 'idle',
+                    'probability': 0.5,
+                    'confidence': 0.0,
+                    'valid': False,
+                    'message': 'No valid features found'
+                }
             
             # Reshape for sklearn
             feature_vector = feature_vector.reshape(1, -1)
             
-            # Get classification and probability
-            class_idx = self.classifier.predict(feature_vector)[0]
-            probabilities = self.classifier.predict_proba(feature_vector)[0]
+            # Get classification and probability based on model type
+            if self.model_type == 'pipeline':
+                # For pipeline models (e.g., Random Forest)
+                class_idx = self.classifier.predict(feature_vector)[0]
+                probabilities = self.classifier.predict_proba(feature_vector)[0]
+            else:
+                # For LDA models (backward compatibility)
+                class_idx = self.classifier.predict(feature_vector)[0]
+                probabilities = self.classifier.predict_proba(feature_vector)[0]
             
             # Get probability for the predicted class
             class_probability = probabilities[int(class_idx)]
@@ -176,7 +182,7 @@ class Classifier:
             confidence = self._calculate_confidence(class_probability)
             
             # Update state and apply state machine logic
-            class_name = self.class_map[class_idx]
+            class_name = self.class_map[int(class_idx)]
             smoothed_state = self._update_state(class_name, class_probability, confidence)
             
             # Add to performance history if confident
@@ -210,6 +216,94 @@ class Classifier:
                 'valid': False,
                 'message': str(e)
             }
+    
+    def _prepare_feature_vector(self, features: Dict) -> Optional[np.ndarray]:
+        """
+        Prepare the feature vector for classification based on available features.
+        Matches exactly how features were extracted during training.
+        
+        Args:
+            features: Dictionary of features from signal processor
+            
+        Returns:
+            Prepared feature vector or None if no valid features
+        """
+        # Get CSP features (required)
+        csp_features = features.get('csp_features')
+        if csp_features is None:
+            logging.warning("No CSP features available")
+            return None
+        
+        # Get band power features
+        mu_erd = features.get('erd_mu', [])
+        beta_erd = features.get('erd_beta', [])
+        
+        # For pipeline models, try to use both CSP and band power features
+        if self.model_type == 'pipeline':
+            if len(mu_erd) > 0 and len(beta_erd) > 0:
+                # Combine features in the same order as training
+                combined_vector = np.hstack([csp_features, mu_erd, beta_erd])
+                return combined_vector
+            else:
+                # Fallback to CSP-only features if band power features are missing
+                logging.warning("Missing band power features, using CSP features only")
+                return csp_features
+        else:
+            # For LDA models, use only CSP features
+            return csp_features
+    
+    def _get_expected_feature_count(self) -> int:
+        """
+        Try to determine the expected number of features from the model.
+        
+        Returns:
+            Expected number of features, or 0 if cannot be determined
+        """
+        try:
+            if self.model_type == 'pipeline' and hasattr(self.classifier, 'named_steps'):
+                scaler = self.classifier.named_steps.get('scaler')
+                if scaler and hasattr(scaler, 'n_features_in_'):
+                    return scaler.n_features_in_
+                elif scaler and hasattr(scaler, 'scale_') and scaler.scale_ is not None:
+                    return len(scaler.scale_)
+            
+            # For other models, try to infer from the classifier
+            if hasattr(self.classifier, 'n_features_in_'):
+                return self.classifier.n_features_in_
+            elif hasattr(self.classifier, 'coef_') and self.classifier.coef_ is not None:
+                return self.classifier.coef_.shape[1]
+                
+        except Exception as e:
+            logging.warning(f"Could not determine expected feature count: {e}")
+        
+        return 0
+    
+    def _adjust_feature_length(self, features: np.ndarray, target_length: int) -> np.ndarray:
+        """
+        Adjust the length of a feature vector to match the target length.
+        
+        Args:
+            features: Input feature vector
+            target_length: Desired length
+            
+        Returns:
+            Adjusted feature vector
+        """
+        features = np.asarray(features)
+        current_length = len(features)
+        
+        if current_length == target_length:
+            return features
+        elif current_length > target_length:
+            # Truncate to target length (keep first features)
+            return features[:target_length]
+        else:
+            # Pad with zeros or repeat last value
+            padding = np.zeros(target_length - current_length)
+            if current_length > 0:
+                # Repeat the last value instead of zeros for better continuity
+                padding.fill(features[-1])
+            return np.hstack([features, padding])
     
     def _calculate_confidence(self, probability: float) -> float:
         """
@@ -265,7 +359,7 @@ class Classifier:
             return 'idle'
         
         # If probability doesn't meet threshold, return to idle
-        effective_threshold = self.adaptive_threshold if self.use_adaptive_threshold else self.threshold
+        effective_threshold = self.adaptive_threshold if self.use_adaptive_threshold and self.adaptive_threshold is not None else self.threshold
         if probability < effective_threshold:
             return 'idle'
         
@@ -305,7 +399,7 @@ class Classifier:
             # Too many "easy" classifications, increase threshold
             self.adaptive_threshold = min(0.8, self.adaptive_threshold + 0.01)
             
-        logging.debug(f"Adaptive threshold updated to {self.adaptive_threshold:.2f} (success rate: {success_rate:.2f})")
+        logging.info(f"Adaptive threshold updated to {self.adaptive_threshold:.2f} (success rate: {success_rate:.2f})")
     
     def save_model(self, filename: str) -> bool:
         """
@@ -326,6 +420,7 @@ class Classifier:
             with open(model_path, 'wb') as f:
                 model_data = {
                     'classifier': self.classifier,
+                    'model_type': self.model_type,
                     'classes': self.classes,
                     'class_map': self.class_map,
                     'threshold': self.threshold,
@@ -340,37 +435,92 @@ class Classifier:
             logging.exception("Error saving model:")
             return False
     
-    def load_model(self, filename: str) -> bool:
+    def is_aggregate_model(self, model_data: Dict) -> bool:
         """
-        Load a trained classifier model from disk.
+        Check if a loaded model is an aggregate model from train_aggregate_models.py.
         
         Args:
-            filename: Name of the file to load the model from
+            model_data: Dictionary containing model data
+            
+        Returns:
+            True if the model is an aggregate model, False otherwise
+        """
+        # Aggregate models have these specific keys
+        required_keys = {'classifier', 'features', 'labels', 'classes', 'class_map'}
+        return all(key in model_data for key in required_keys)
+
+    def load_model(self, filename: str) -> bool:
+        """
+        Load a trained classifier model from file.
+        
+        Args:
+            filename: Path to the model file
             
         Returns:
             Success indicator
         """
         try:
-            model_path = os.path.join(self.model_dir, filename)
-            if not os.path.exists(model_path):
-                logging.error(f"Model file not found: {model_path}")
+            # Try different possible paths for the model file
+            possible_paths = [
+                os.path.join(self.model_dir, filename),  # Direct in model dir
+                os.path.join('models', filename),        # In models directory
+                os.path.join('calibration', 'random_forest', filename),  # In calibration/random_forest
+                filename  # Absolute path
+            ]
+            
+            filepath = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    filepath = path
+                    break
+            
+            if filepath is None:
+                logging.error(f"Model file not found in any of these locations: {possible_paths}")
                 return False
-                
-            with open(model_path, 'rb') as f:
+            
+            logging.info(f"Loading model from: {filepath}")
+            
+            with open(filepath, 'rb') as f:
                 model_data = pickle.load(f)
+            
+            # Check if this is an aggregate model
+            if 'features' in model_data and 'labels' in model_data:
+                logging.info("Loading aggregate model with CSP filters")
                 
+                # Extract CSP filters from the model data
+                if 'csp_filters' in model_data:
+                    self.csp_filters = model_data['csp_filters']
+                    self.csp_patterns = model_data.get('csp_patterns')
+                    self.csp_mean = model_data.get('csp_mean')
+                    self.csp_std = model_data.get('csp_std')
+                    logging.info(f"Loaded CSP filters: shape {self.csp_filters.shape}")
+                else:
+                    logging.error("CSP filters not found in aggregate model")
+                    return False
+            
+            # Update classifier with loaded model
             self.classifier = model_data['classifier']
-            self.classes = model_data.get('classes', ['left', 'right'])
+            
+            # Determine model type if not explicitly set
+            if 'model_type' in model_data:
+                self.model_type = model_data['model_type']
+            else:
+                # Auto-detect model type based on classifier type
+                from sklearn.pipeline import Pipeline
+                if isinstance(self.classifier, Pipeline):
+                    self.model_type = 'pipeline'
+                    logging.info("Auto-detected model type as 'pipeline'")
+                else:
+                    self.model_type = 'lda'
+                    logging.info("Auto-detected model type as 'lda'")
+            
+            self.classes = model_data.get('classes', [0., 1.])
             self.class_map = model_data.get('class_map', {0: 'left', 1: 'right'})
-            self.threshold = model_data.get('threshold', 0.65)
+            self.threshold = model_data.get('threshold', self.config.get('CLASSIFIER_THRESHOLD', 0.65))
+            # Initialize adaptive_threshold properly, fallback to threshold if not in model
             self.adaptive_threshold = model_data.get('adaptive_threshold', self.threshold)
             
-            # Reset state
-            self.state_history.clear()
-            self.probabilities_history.clear()
-            self.current_state = 'idle'
-            
-            logging.info(f"Model loaded from {model_path}")
+            logging.info(f"Loaded {self.model_type} model successfully")
             return True
             
         except Exception as e:

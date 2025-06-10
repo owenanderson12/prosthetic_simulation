@@ -7,6 +7,16 @@ from typing import Dict, List, Tuple, Optional, Callable
 from datetime import datetime
 from enum import Enum
 from pylsl import StreamInfo, StreamOutlet
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import cross_val_score
+import pickle
+
+# Add parent directory to path to import config
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import config
 
 class CalibrationStage(Enum):
     """Enumeration for calibration stages."""
@@ -409,7 +419,7 @@ class CalibrationSystem:
     
     def _train_classifier(self) -> bool:
         """
-        Train the classifier using collected calibration data.
+        Train the Random Forest classifier using collected calibration data.
         
         Returns:
             Success indicator
@@ -444,8 +454,16 @@ class CalibrationSystem:
                         result = self.signal_processor.process(window, timestamps)
                         if result['valid'] and result['features'] is not None:
                             # Prefer CSP features if available
-                            if result['features'].get('csp_features') is not None:
-                                self.left_features.append(result['features']['csp_features'])
+                            csp_features = result['features'].get('csp_features')
+                            if csp_features is not None:
+                                # Combine CSP + band power features for Random Forest
+                                mu_erd = result['features'].get('erd_mu', [])
+                                beta_erd = result['features'].get('erd_beta', [])
+                                if len(mu_erd) > 0 and len(beta_erd) > 0:
+                                    feature_vector = np.hstack([csp_features, mu_erd, beta_erd])
+                                else:
+                                    feature_vector = csp_features
+                                self.left_features.append(feature_vector)
                             else:
                                 # Fallback to band power features
                                 mu_erd = result['features'].get('erd_mu', [])
@@ -469,8 +487,16 @@ class CalibrationSystem:
                         result = self.signal_processor.process(window, timestamps)
                         if result['valid'] and result['features'] is not None:
                             # Prefer CSP features if available
-                            if result['features'].get('csp_features') is not None:
-                                self.right_features.append(result['features']['csp_features'])
+                            csp_features = result['features'].get('csp_features')
+                            if csp_features is not None:
+                                # Combine CSP + band power features for Random Forest
+                                mu_erd = result['features'].get('erd_mu', [])
+                                beta_erd = result['features'].get('erd_beta', [])
+                                if len(mu_erd) > 0 and len(beta_erd) > 0:
+                                    feature_vector = np.hstack([csp_features, mu_erd, beta_erd])
+                                else:
+                                    feature_vector = csp_features
+                                self.right_features.append(feature_vector)
                             else:
                                 # Fallback to band power features
                                 mu_erd = result['features'].get('erd_mu', [])
@@ -520,29 +546,59 @@ class CalibrationSystem:
                                 feature_vector = np.hstack([mu_erd, beta_erd])
                                 self.right_features.append(feature_vector)
             
-            # 3. Train classifier
+            # 3. Train Random Forest classifier
             if not self.left_features or not self.right_features:
                 logging.error("Not enough feature data to train classifier")
                 return False
                 
-            self._update_ui(f"Training classifier with {len(self.left_features)} left and {len(self.right_features)} right features...")
-            accuracy = self.classifier.train(self.left_features, self.right_features)
+            self._update_ui(f"Training Random Forest classifier with {len(self.left_features)} left and {len(self.right_features)} right features...")
             
-            logging.info(f"Classifier trained with accuracy: {accuracy:.3f}")
-            self._update_ui(f"Classifier trained with cross-validation accuracy: {accuracy:.1%}")
+            # Prepare training data
+            X = np.vstack([np.array(self.left_features), np.array(self.right_features)])
+            y = np.hstack([
+                np.zeros(len(self.left_features)),  # 0 = left
+                np.ones(len(self.right_features))   # 1 = right
+            ])
+            
+            # Create Random Forest pipeline with scaling
+            pipeline = Pipeline([
+                ('scaler', StandardScaler()),
+                ('classifier', RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42))
+            ])
+            
+            # Cross-validation
+            cv_scores = cross_val_score(pipeline, X, y, cv=5, scoring='accuracy')
+            accuracy = cv_scores.mean()
+            
+            # Train on all data
+            pipeline.fit(X, y)
+            
+            # Update classifier with trained pipeline
+            self.classifier.classifier = pipeline
+            self.classifier.model_type = 'pipeline'
+            self.classifier.classes = [0., 1.]
+            self.classifier.class_map = {0: 'left', 1: 'right'}
+            
+            logging.info(f"Random Forest classifier trained with accuracy: {accuracy:.3f}")
+            self._update_ui(f"Random Forest classifier trained with cross-validation accuracy: {accuracy:.1%}")
             
             return accuracy > 0.5  # Lower threshold for success
             
         except Exception as e:
-            logging.exception("Error during classifier training:")
+            logging.exception("Error during Random Forest classifier training:")
             return False
     
     def _save_calibration_data(self) -> None:
-        """Save calibration data for later use."""
+        """Save calibration data for later use in Random Forest subfolder."""
         try:
             timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"calibration_{timestamp_str}.npz"
-            filepath = os.path.join(self.calibration_dir, filename)
+            
+            # Use random_forest subfolder
+            rf_calibration_dir = os.path.join(self.calibration_dir, 'random_forest')
+            os.makedirs(rf_calibration_dir, exist_ok=True)
+            
+            filename = f"rf_calibration_{timestamp_str}.npz"
+            filepath = os.path.join(rf_calibration_dir, filename)
             
             # Prepare data to save
             save_data = {
@@ -564,15 +620,28 @@ class CalibrationSystem:
             # Save calibration data
             np.savez(filepath, **save_data)
             
-            # Save trained classifier
-            model_filename = f"model_{timestamp_str}.pkl"
-            self.classifier.save_model(model_filename)
+            # Save trained Random Forest classifier
+            model_filename = f"rf_model_{timestamp_str}.pkl"
+            model_filepath = os.path.join(rf_calibration_dir, model_filename)
             
-            logging.info(f"Calibration data saved to {filepath}")
-            self._update_ui(f"Calibration data saved")
+            model_data = {
+                'classifier': self.classifier.classifier,
+                'model_type': self.classifier.model_type,
+                'classes': self.classifier.classes,
+                'class_map': self.classifier.class_map,
+                'threshold': self.classifier.threshold,
+                'adaptive_threshold': self.classifier.adaptive_threshold
+            }
+            
+            with open(model_filepath, 'wb') as f:
+                pickle.dump(model_data, f)
+            
+            logging.info(f"Random Forest calibration data saved to {filepath}")
+            logging.info(f"Random Forest model saved to {model_filepath}")
+            self._update_ui(f"Random Forest calibration data saved to random_forest/ folder")
             
         except Exception as e:
-            logging.exception("Error saving calibration data:")
+            logging.exception("Error saving Random Forest calibration data:")
     
     def load_calibration(self, filename: str) -> bool:
         """
@@ -587,11 +656,26 @@ class CalibrationSystem:
         try:
             if not filename.endswith('.npz'):
                 filename += '.npz'
-                
-            filepath = os.path.join(self.calibration_dir, filename)
-            if not os.path.exists(filepath):
-                logging.error(f"Calibration file not found: {filepath}")
+            
+            # Try different possible paths for the calibration file
+            possible_paths = [
+                os.path.join(self.calibration_dir, filename),  # Direct in calibration dir
+                os.path.join(self.calibration_dir, 'random_forest', filename),  # In random_forest subdir
+                os.path.join(self.calibration_dir, 'random_forest', f"rf_{filename}"),  # With rf_ prefix
+                os.path.join(self.calibration_dir, 'random_forest', f"rf_calibration_{filename}")  # Full rf_calibration_ prefix
+            ]
+            
+            filepath = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    filepath = path
+                    break
+            
+            if filepath is None:
+                logging.error(f"Calibration file not found in any of these locations: {possible_paths}")
                 return False
+            
+            logging.info(f"Found calibration file at: {filepath}")
             
             # Load calibration data
             data = np.load(filepath, allow_pickle=True)
@@ -608,25 +692,79 @@ class CalibrationSystem:
                 self.signal_processor.update_baseline(self.baseline_data)
                 logging.info("Baseline power values updated")
                 
-            # Load CSP filters if available
+            # Load CSP filters if available, otherwise retrain them
             if 'csp_filters' in data and self.signal_processor is not None:
                 self.signal_processor.csp_filters = data['csp_filters']
                 self.signal_processor.csp_patterns = data.get('csp_patterns')
                 self.signal_processor.csp_mean = data.get('csp_mean')
                 self.signal_processor.csp_std = data.get('csp_std')
                 logging.info(f"Loaded CSP filters: shape {self.signal_processor.csp_filters.shape}")
-                
-            # Try to load associated model if it exists
-            model_filename = filename.replace('calibration_', 'model_').replace('.npz', '.pkl')
-            if os.path.exists(os.path.join(self.config.get('MODEL_DIR', 'models'), model_filename)):
-                if self.classifier is not None:
-                    if self.classifier.load_model(model_filename):
-                        logging.info(f"Associated model {model_filename} loaded successfully")
-                    else:
-                        logging.error(f"Failed to load associated model {model_filename}")
-                        return False
+            elif self.signal_processor is not None and len(self.left_data) > 0 and len(self.right_data) > 0:
+                logging.info("CSP filters not found in calibration file. Retraining from saved data...")
+                # Convert object arrays to lists of numpy arrays
+                left_trials = [trial for trial in self.left_data]
+                right_trials = [trial for trial in self.right_data]
+                # Train CSP filters
+                self.signal_processor.train_csp(left_trials, right_trials)
+                if self.signal_processor.csp_filters is not None:
+                    logging.info(f"Successfully retrained CSP filters: shape {self.signal_processor.csp_filters.shape}")
+                else:
+                    logging.error("Failed to train CSP filters from saved data")
+                    return False
             else:
-                logging.warning(f"No associated model file found: {model_filename}")
+                logging.error("No data available to train CSP filters")
+                return False
+                
+            # Try to load associated model
+            model_filename = None
+            model_filepath = None
+            
+            # Check if this is a Random Forest calibration (in random_forest subfolder)
+            if 'random_forest' in filepath:
+                # Random Forest model - extract just the base filename
+                base_filename = os.path.basename(filepath)
+                model_filename = base_filename.replace('rf_calibration_', 'rf_model_').replace('.npz', '.pkl')
+                # Get the directory of the calibration file (already includes random_forest)
+                calibration_dir = os.path.dirname(filepath)
+                model_filepath = os.path.join(calibration_dir, model_filename)
+            else:
+                # Legacy LDA model
+                model_filename = filename.replace('calibration_', 'model_').replace('.npz', '.pkl')
+                model_filepath = os.path.join(self.config.get('MODEL_DIR', 'models'), model_filename)
+            
+            if os.path.exists(model_filepath):
+                if self.classifier is not None:
+                    # Load the model data directly
+                    try:
+                        with open(model_filepath, 'rb') as f:
+                            model_data = pickle.load(f)
+                        
+                        # Update classifier with loaded model
+                        self.classifier.classifier = model_data['classifier']
+                        self.classifier.model_type = model_data.get('model_type', 'lda')
+                        self.classifier.classes = model_data.get('classes', [0., 1.])
+                        self.classifier.class_map = model_data.get('class_map', {0: 'left', 1: 'right'})
+                        self.classifier.threshold = model_data.get('threshold', self.config.get('CLASSIFIER_THRESHOLD', 0.65))
+                        self.classifier.adaptive_threshold = model_data.get('adaptive_threshold')
+                        
+                        logging.info(f"Loaded {model_data.get('model_type', 'LDA')} model from {model_filepath}")
+                        
+                        # Log model performance if available
+                        if 'cv_accuracy' in model_data:
+                            logging.info(f"Model CV accuracy: {model_data['cv_accuracy']:.1%}")
+                            
+                    except Exception as e:
+                        logging.error(f"Failed to load model from {model_filepath}: {e}")
+                        return False
+                else:
+                    logging.error("No classifier available to load model into")
+                    return False
+            else:
+                logging.warning(f"No associated model file found: {model_filepath}")
+                # For Random Forest calibrations, this is critical
+                if 'random_forest' in filepath:
+                    logging.error("Random Forest calibration requires associated .pkl model file")
+                    return False
             
             logging.info(f"Calibration data loaded from {filepath}")
             return True

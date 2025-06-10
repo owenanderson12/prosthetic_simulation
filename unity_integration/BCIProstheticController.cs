@@ -50,21 +50,26 @@ public class BCIProstheticController : MonoBehaviour
         ConnectToLSL();
     }
     
-    void ConnectToLSL()
+    private void ConnectToLSL()
     {
-        Debug.Log($"[BCI] Searching for LSL stream '{streamName}'...");
+        // Find LSL stream
+        if (showDebugInfo) Debug.Log($"[BCI] Searching for LSL stream '{streamName}'...");
+        
+        var resolver = new StreamInlet.Resolver("name", streamName);
         
         StreamInfo[] streamInfos = LSL.LSL.resolve_stream("name", streamName, 1, timeout);
         
         if (streamInfos.Length > 0)
         {
+            if (showDebugInfo) Debug.Log($"[BCI] Connected to LSL stream '{streamName}'!");
+            
+            // Create inlet to receive data
             inlet = new StreamInlet(streamInfos[0]);
             streamConnected = true;
-            Debug.Log($"[BCI] Connected to LSL stream '{streamName}'!");
         }
         else
         {
-            Debug.LogWarning($"[BCI] No LSL stream named '{streamName}' found. Retrying...");
+            if (showDebugInfo) Debug.LogWarning($"[BCI] No LSL stream named '{streamName}' found. Retrying...");
             Invoke(nameof(ConnectToLSL), 2.0f); // Retry after 2 seconds
         }
     }

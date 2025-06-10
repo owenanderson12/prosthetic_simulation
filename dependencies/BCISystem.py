@@ -6,6 +6,7 @@ import logging
 import threading
 import json
 from typing import Dict, Any
+import numpy as np
 
 # Add the parent directory to the path to allow imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -69,7 +70,7 @@ class BCISystem:
     
     def _setup_logging(self) -> None:
         """Configure the logging system."""
-        log_level = getattr(logging, self.config.get('LOG_LEVEL', 'INFO'))
+        log_level = getattr(logging, self.config.get('LOG_LEVEL', 'INFO'))  # Back to normal logging
         log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         
         # Configure root logger
@@ -238,17 +239,71 @@ class BCISystem:
             logging.error("Failed to start calibration")
             return False
     
-    def load_calibration(self, filename: str) -> bool:
+    def _is_aggregate_model_file(self, filename: str) -> bool:
         """
-        Load a saved calibration.
+        Check if a file is an aggregate model from train_aggregate_models.py.
         
         Args:
-            filename: Name of the calibration file to load
+            filename: Name of the model file
             
         Returns:
-            Success indicator
+            True if the file is an aggregate model, False otherwise
         """
-        return self.calibration.load_calibration(filename)
+        # Aggregate models are always .pkl files and have specific naming patterns
+        if not filename.endswith('.pkl'):
+            return False
+        
+        # Check for aggregate model naming patterns
+        aggregate_patterns = [
+            'aggregate_csp_model',
+            'aggregate_csp_bp_model'
+        ]
+        return any(pattern in filename for pattern in aggregate_patterns)
+
+    def load_calibration(self, model_file: str) -> bool:
+        """Load calibration data or model from file.
+        
+        Args:
+            model_file: Path to calibration data or model file
+            
+        Returns:
+            bool: True if loading was successful
+        """
+        try:
+            # Check if this is an aggregate model
+            if self._is_aggregate_model_file(model_file):
+                logging.info(f"Loading aggregate model from {model_file}")
+                if self.classifier.load_model(model_file):
+                    # Initialize CSP filters in signal processor
+                    if self.classifier.csp_filters is not None:
+                        self.signal_processor.csp_filters = self.classifier.csp_filters
+                        self.signal_processor.csp_patterns = self.classifier.csp_patterns
+                        self.signal_processor.csp_mean = self.classifier.csp_mean
+                        self.signal_processor.csp_std = self.classifier.csp_std
+                        logging.info("Initialized CSP filters in signal processor")
+                    else:
+                        logging.error("No CSP filters found in loaded model")
+                        return False
+                    
+                    # Skip calibration phase but ensure baseline collection is enabled
+                    self.calibration_mode = False
+                    self.signal_processor.reset_baseline()  # Reset baseline for fresh collection
+                    return True
+                else:
+                    logging.error("Failed to load aggregate model")
+                    return False
+            else:
+                # Load calibration data
+                if self.signal_processor.load_calibration(model_file):
+                    self.calibration_mode = True
+                    return True
+                else:
+                    logging.error("Failed to load calibration data")
+                    return False
+                    
+        except Exception as e:
+            logging.error(f"Error loading calibration: {str(e)}")
+            return False
     
     def start_processing(self) -> bool:
         """
@@ -271,12 +326,20 @@ class BCISystem:
             logging.error("Cannot start processing: No trained classifier")
             return False
             
+        # If we're in calibration mode but have a trained classifier,
+        # we can proceed with processing (this handles aggregate models)
+        if self.calibration_mode and self.classifier.classifier is not None:
+            logging.info("Calibration mode active but classifier is trained - proceeding with processing")
+            self.calibration_mode = False
+        
+        # Set processing enabled BEFORE starting the thread to avoid race condition
+        self.processing_enabled = True
+        
         # Start processing in a separate thread
         self._processing_thread = threading.Thread(target=self._processing_loop)
         self._processing_thread.daemon = True
         self._processing_thread.start()
         
-        self.processing_enabled = True
         logging.info("BCI processing started")
         return True
     
@@ -292,47 +355,58 @@ class BCISystem:
             
         logging.info("BCI processing stopped")
     
-    def _processing_loop(self) -> None:
-        """Main BCI processing loop running in a separate thread."""
+    def _processing_loop(self):
+        """Main processing loop for real-time classification."""
         logging.info("Processing loop started")
         
-        try:
-            while not self._stop_event.is_set() and self.processing_enabled:
-                # Get the latest EEG data
-                window_size = int(self.config.get('WINDOW_SIZE', 2.0) * self.config.get('SAMPLE_RATE', 250))
-                data, timestamps = self.data_source.get_chunk(window_size=window_size)
+        while self.running and self.processing_enabled:
+            try:
+                # Get latest data from data source
+                data, timestamps = self.data_source.get_chunk(
+                    window_size=int(self.config.get('WINDOW_SIZE', 2.0) * self.config.get('SAMPLE_RATE', 250))
+                )
                 
-                if data.size == 0:
-                    time.sleep(0.1)  # No data available, wait briefly
-                    continue
-                
-                # Process the data
-                processing_result = self.signal_processor.process(data, timestamps)
-                
-                # Skip if processing failed
-                if not processing_result['valid']:
-                    logging.debug(f"Invalid processing result: {processing_result.get('message', 'Unknown error')}")
+                if data is None or len(data) == 0:
                     time.sleep(0.05)
                     continue
-                
-                # Classify the processed data
-                classification_result = self.classifier.classify(processing_result['features'])
-                
-                # Skip if classification failed
-                if not classification_result['valid']:
-                    logging.debug(f"Invalid classification result: {classification_result.get('message', 'Unknown error')}")
+
+                # Process data
+                try:
+                    processing_result = self.signal_processor.process(data, timestamps)
+                    if processing_result is None or not processing_result.get('valid', False):
+                        logging.warning(f"Invalid processing result: {processing_result}")
+                        time.sleep(0.05)
+                        continue
+
+                    # Always update baseline if we have valid data
+                    if 'features' in processing_result and processing_result['features'] is not None:
+                        self.signal_processor.update_baseline(data)
+
+                    # Extract features for classification
+                    features = processing_result.get('features')
+                    if features is not None:
+                        classification_result = self.classifier.classify(features)
+                        if classification_result is not None and classification_result.get('valid', False):
+                            logging.info(f"Classification: {classification_result['class']} (confidence: {classification_result['confidence']:.2f})")
+                            self._handle_classification(classification_result)
+                        else:
+                            logging.warning(f"Invalid classification result: {classification_result}")
+                    else:
+                        logging.warning("No features available for classification")
+
+                except Exception as e:
+                    logging.error(f"Error processing data: {str(e)}")
                     time.sleep(0.05)
                     continue
-                
-                # Use the classification result to control the simulation
-                self._handle_classification(classification_result)
-                
-                # Brief sleep to prevent CPU overload
-                time.sleep(0.01)
-                
-        except Exception as e:
-            logging.exception("Error in processing loop:")
-            self.processing_enabled = False
+
+            except Exception as e:
+                logging.error(f"Error in processing loop: {str(e)}")
+                time.sleep(0.05)
+                continue
+
+            time.sleep(0.05)  # Prevent CPU overload
+        
+        logging.info("Processing loop ended")
     
     def _handle_classification(self, classification_result: Dict) -> None:
         """
@@ -365,6 +439,20 @@ class BCISystem:
         if state != 'idle' and confidence > self.config.get('CLASSIFIER_THRESHOLD', 0.65):
             command = "OPEN/CLOSE" if state == 'left' else "ROTATE"
             print(f"HAND COMMAND: {command} (confidence: {confidence:.2f})")
+        
+        # Notify any registered observers
+        self.notify_observers(classification_result)
+    
+    def notify_observers(self, classification_result: Dict) -> None:
+        """
+        Notify all registered observers of classification results.
+        
+        Args:
+            classification_result: Classification result to broadcast
+        """
+        # This method can be extended to support observer pattern
+        # For now, it's a placeholder that could be used by UI components
+        pass
     
     def set_data_source(self, source_type: str, source_path: str = None) -> bool:
         """
@@ -425,4 +513,4 @@ class BCISystem:
             
         except Exception as e:
             logging.exception("Error changing data source:")
-            return False 
+            return False

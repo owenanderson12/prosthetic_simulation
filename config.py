@@ -21,7 +21,7 @@ for directory in [DATA_DIR, RAW_DATA_DIR, PROCESSED_DATA_DIR, MODEL_DIR, CALIBRA
 # --- LSL Stream Names ---
 EEG_STREAM_NAME = "OpenBCI_EEG"
 MARKER_STREAM_NAME = "MI_MarkerStream"
-UNITY_OUTPUT_STREAM = "ProstheticControl"
+UNITY_OUTPUT_STREAM = "HandGesturePredictions"
 
 # --- EEG Acquisition ---
 SAMPLE_RATE = 250  # Hz
@@ -38,12 +38,12 @@ MU_BAND = (8, 13)  # Hz
 BETA_BAND = (13, 30)  # Hz
 FILTER_ORDER = 4
 FILTER_BAND = (1, 45)  # Hz
-ARTIFACT_AMPLITUDE_THRESHOLD = 5000  # μV (increased to handle DC offset)
-ARTIFACT_VARIANCE_THRESHOLD = 1000000  # μV² (increased for raw data)
+ARTIFACT_AMPLITUDE_THRESHOLD = 300  # After filtering, reasonable threshold for artifacts  
+ARTIFACT_VARIANCE_THRESHOLD = 10000  # Variance threshold for filtered data
 
 # --- Classification ---
-CLASSIFIER_THRESHOLD = 0.60  # confidence level required for actuation
-MIN_CONFIDENCE = 0.50
+CLASSIFIER_THRESHOLD = 0.65  # confidence level required for actuation
+MIN_CONFIDENCE = 0.55  # Restored to reasonable value with fixed preprocessing
 ADAPTIVE_THRESHOLD = True
 CSP_COMPONENTS = 4  # number of CSP components to use
 
@@ -63,8 +63,8 @@ WAIT_FOR_UNITY = True  # Whether to wait for Unity to connect before starting
 UNITY_CONNECTION_TIMEOUT = 30.0  # seconds to wait for Unity connection
 
 # --- System ---
-LOG_LEVEL = "DEBUG"
-LOG_FILE = os.path.join(BASE_DIR, "bci_system.log")
+LOG_LEVEL = "INFO"  # Changed from DEBUG for cleaner operation
+LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 DEBUG_MODE = False  # Enable additional debug information
 
 # --- Feature Dictionary for Configuration UI ---

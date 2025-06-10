@@ -5,6 +5,8 @@ from scipy import signal, linalg
 import mne
 import os
 import sys
+import scipy.linalg
+from scipy.signal import welch
 
 # Add parent directory to path to import config
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -109,73 +111,89 @@ class SignalProcessor:
             btype='bandpass'
         )
     
-    def process(self, eeg_data: np.ndarray, timestamps: np.ndarray) -> Dict:
+    def process(self, data: np.ndarray, timestamps: np.ndarray) -> Dict:
         """
-        Process a chunk of EEG data to extract features for motor imagery classification.
+        Process EEG data and extract features.
         
         Args:
-            eeg_data: Raw EEG data (samples x channels)
-            timestamps: Timestamps for the samples
+            data: EEG data array (samples × channels)
+            timestamps: Array of timestamps for each sample
             
         Returns:
-            Dictionary containing processed features and metadata
+            Dictionary with processing results and features
         """
-        # Check if data is valid
-        if eeg_data.size == 0:
-            return {
-                'valid': False,
-                'message': 'Empty data',
-                'features': None
-            }
-        
-        # Preprocessing
         try:
-            # Artifact rejection
-            clean_data, artifact_mask = self._reject_artifacts(eeg_data)
+            # Validate input
+            if data is None or data.size == 0:
+                return {'valid': False, 'error': 'No data provided'}
+                
+            if data.shape[1] != len(self.channels):
+                return {'valid': False, 'error': f'Expected {len(self.channels)} channels, got {data.shape[1]}'}
+                
+            # Apply same preprocessing pipeline as training
+            # 1. Grand average reference (Common Average Reference)
+            referenced_data = self._apply_spatial_filtering(data)
             
-            if np.sum(~artifact_mask) < 0.7 * len(artifact_mask):
-                return {
-                    'valid': False,
-                    'message': 'Too many artifacts',
-                    'features': None
-                }
+            # 2. Apply bandpass and notch filters 
+            filtered_data = self._apply_filters(referenced_data)
             
-            # Apply filters
-            filtered_data = self._apply_filters(clean_data)
+            # 3. Artifact rejection
+            clean_data, artifact_mask = self._reject_artifacts(filtered_data)
             
-            # Apply spatial filtering
-            spatial_filtered = self._apply_spatial_filtering(filtered_data)
+            # Apply CSP filters if available
+            csp_features = None
+            if self.csp_filters is not None:
+                try:
+                    # Apply CSP filters to preprocessed data
+                    csp_data = np.dot(clean_data, self.csp_filters.T)
+                    
+                    # Extract variance features
+                    csp_features = np.var(csp_data, axis=0)
+                    
+                    # Normalize if mean and std are available
+                    if self.csp_mean is not None and self.csp_std is not None:
+                        csp_features = (csp_features - self.csp_mean) / self.csp_std
+                        
+                except Exception as e:
+                    logging.error(f"Error extracting CSP features: {e}")
+                    csp_features = None
             
-            # Extract features
-            band_powers = self._calculate_band_powers(spatial_filtered)
-            erd_ers = self._calculate_erd_ers(band_powers)
+            # Extract band power features from preprocessed data
+            mu_erd = []
+            beta_erd = []
             
-            # Extract CSP features if available
-            csp_features = self._extract_csp_features(filtered_data) if self.csp_filters is not None else None
+            for ch in range(len(self.channels)):
+                # Get channel data
+                ch_data = clean_data[:, ch]
+                
+                # Extract band power
+                mu_power = self._extract_band_power(ch_data, self.mu_band)
+                beta_power = self._extract_band_power(ch_data, self.beta_band)
+                
+                # Calculate ERD/ERS
+                if self.baseline_mu_power[ch] is not None and self.baseline_beta_power[ch] is not None:
+                    mu_erd.append((mu_power - self.baseline_mu_power[ch]) / self.baseline_mu_power[ch])
+                    beta_erd.append((beta_power - self.baseline_beta_power[ch]) / self.baseline_beta_power[ch])
+                else:
+                    mu_erd.append(mu_power)
+                    beta_erd.append(beta_power)
             
-            # Construct feature vector
-            features = {
-                'mu_power': band_powers['mu'],
-                'beta_power': band_powers['beta'],
-                'erd_mu': erd_ers['mu'],
-                'erd_beta': erd_ers['beta'],
-                'csp_features': csp_features
-            }
+            # Combine features
+            features = {}
+            if csp_features is not None:
+                features['csp_features'] = csp_features
+            features['erd_mu'] = np.array(mu_erd)
+            features['erd_beta'] = np.array(beta_erd)
             
             return {
                 'valid': True,
                 'features': features,
-                'artifact_ratio': np.mean(artifact_mask),
-                'timestamp': timestamps[-1]
+                'timestamps': timestamps
             }
             
         except Exception as e:
-            logging.exception("Error in signal processing:")
-            return {
-                'valid': False,
-                'message': str(e),
-                'features': None
-            }
+            logging.exception("Error processing data:")
+            return {'valid': False, 'error': str(e)}
     
     def _reject_artifacts(self, eeg_data: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -335,219 +353,106 @@ class SignalProcessor:
         
         return erd_ers
     
-    def update_baseline(self, eeg_data: np.ndarray) -> None:
-        """
-        Update the baseline power values using resting state data.
+    def update_baseline(self, data: np.ndarray) -> None:
+        """Update baseline power values with new data.
         
         Args:
-            eeg_data: Filtered EEG data during resting state
+            data: EEG data array of shape (n_samples, n_channels)
         """
-        try:
-            # Apply filters
-            filtered_data = self._apply_filters(eeg_data)
-            
-            # Apply spatial filtering
-            spatial_filtered = self._apply_spatial_filtering(filtered_data)
-            
-            # Calculate band powers
-            band_powers = self._calculate_band_powers(spatial_filtered)
-            
-            # Update baseline values
-            for ch in range(len(band_powers['mu'])):
-                # Initialize or update with moving average
-                if self.baseline_mu_power[ch] is None:
-                    self.baseline_mu_power[ch] = band_powers['mu'][ch]
-                    self.baseline_beta_power[ch] = band_powers['beta'][ch]
-                else:
-                    # Exponential moving average with 0.3 weight for new data
-                    self.baseline_mu_power[ch] = 0.7 * self.baseline_mu_power[ch] + 0.3 * band_powers['mu'][ch]
-                    self.baseline_beta_power[ch] = 0.7 * self.baseline_beta_power[ch] + 0.3 * band_powers['beta'][ch]
-            
-            logging.info("Baseline power values updated")
-            
-        except Exception as e:
-            logging.exception("Error updating baseline:")
-    
-    def train_csp(self, left_trials: List[np.ndarray], right_trials: List[np.ndarray], n_components: int = 4) -> None:
-        def _clean_trials(trials, hand_label):
-            cleaned = []
-            for idx, trial in enumerate(trials):
-                original_trial = trial.copy()
-                if trial.size == 0:
-                    logging.warning(f"{hand_label} trial {idx} is empty. Skipping.")
-                    continue
-                # Handle NaN/Inf by interpolation or replacement if possible
-                nan_mask = np.isnan(trial)
-                inf_mask = np.isinf(trial)
-                n_bad = np.sum(nan_mask | inf_mask)
-                total = trial.size
-                if n_bad > 0:
-                    # Try to interpolate only if <20% of data is bad
-                    if n_bad / total < 0.2:
-                        trial = trial.astype(float)  # ensure float for NaN assignment
-                        trial[nan_mask] = np.nan
-                        trial[inf_mask] = np.nan
-                        # Interpolate NaNs along each channel (axis 0)
-                        for ch in range(trial.shape[1]):
-                            channel = trial[:, ch]
-                            if np.any(np.isnan(channel)):
-                                not_nan = ~np.isnan(channel)
-                                if np.sum(not_nan) > 1:
-                                    channel[np.isnan(channel)] = np.interp(
-                                        np.flatnonzero(np.isnan(channel)),
-                                        np.flatnonzero(not_nan),
-                                        channel[not_nan]
-                                    )
-                                else:
-                                    # If all values are NaN, skip trial
-                                    logging.warning(f"{hand_label} trial {idx} channel {ch} all NaN after interpolation. Skipping trial.")
-                                    break
-                        # After interpolation, check again for NaN
-                        if np.isnan(trial).any() or np.isinf(trial).any():
-                            logging.warning(f"{hand_label} trial {idx} still contains NaN/Inf after interpolation. Skipping.")
-                            continue
-                        logging.info(f"{hand_label} trial {idx}: {n_bad}/{total} ({n_bad/total:.1%}) NaN/Inf values interpolated.")
-                    else:
-                        logging.warning(f"{hand_label} trial {idx} contains {n_bad}/{total} ({n_bad/total:.1%}) NaN/Inf values. Too many to fix, skipping.")
-                        continue
-                # Handle near-zero variance: allow if not all values are constant
-                flat_fraction = np.mean(np.ptp(trial, axis=0) == 0)
-                if flat_fraction > 0.5:
-                    logging.warning(f"{hand_label} trial {idx} has >50% zero-variance channels. Skipping.")
-                    continue
-                elif flat_fraction > 0:
-                    logging.info(f"{hand_label} trial {idx} has {flat_fraction:.1%} zero-variance channels, but keeping trial.")
-                cleaned.append(trial)
-            return cleaned
-
-        left_trials_clean = _clean_trials(left_trials, "Left")
-        right_trials_clean = _clean_trials(right_trials, "Right")
-
-        if len(left_trials_clean) < 5 or len(right_trials_clean) < 5:
-            logging.error(f"Not enough valid trials after cleaning (left: {len(left_trials_clean)}, right: {len(right_trials_clean)}). Aborting CSP training.")
+        if data is None or len(data) == 0:
             return
 
-        left_trials = left_trials_clean
-        right_trials = right_trials_clean
-
+        try:
+            # Apply same preprocessing pipeline as main process method
+            # 1. Grand average reference
+            referenced_data = self._apply_spatial_filtering(data)
+            
+            # 2. Apply bandpass and notch filters 
+            filtered_data = self._apply_filters(referenced_data)
+            
+            # 3. Artifact rejection
+            clean_data, artifact_mask = self._reject_artifacts(filtered_data)
+            
+            # Extract band power features for each channel from preprocessed data
+            for ch_idx in range(clean_data.shape[1]):
+                ch_data = clean_data[:, ch_idx]
+                
+                # Extract power in mu and beta bands
+                mu_power = self._extract_band_power(ch_data, self.mu_band)
+                beta_power = self._extract_band_power(ch_data, self.beta_band)
+                
+                # Update baseline values using exponential moving average
+                if self.baseline_mu_power[ch_idx] is None:
+                    self.baseline_mu_power[ch_idx] = mu_power
+                    self.baseline_beta_power[ch_idx] = beta_power
+                else:
+                    self.baseline_mu_power[ch_idx] = 0.95 * self.baseline_mu_power[ch_idx] + 0.05 * mu_power
+                    self.baseline_beta_power[ch_idx] = 0.95 * self.baseline_beta_power[ch_idx] + 0.05 * beta_power
+            
+            logging.debug("Baseline power values updated")
+            
+        except Exception as e:
+            logging.error(f"Error updating baseline: {str(e)}")
+    
+    def train_csp(self, left_trials: List[np.ndarray], right_trials: List[np.ndarray]) -> bool:
         """
-        Train Common Spatial Pattern filters for left vs right hand motor imagery.
+        Train CSP filters using left and right motor imagery trials.
         
         Args:
-            left_trials: List of EEG data arrays for left hand imagery
-            right_trials: List of EEG data arrays for right hand imagery
-            n_components: Number of CSP components to keep
+            left_trials: List of left hand motor imagery trials
+            right_trials: List of right hand motor imagery trials
+            
+        Returns:
+            Success indicator
         """
         try:
-            # Ensure we have data for both classes
             if not left_trials or not right_trials:
-                logging.error("Not enough trials for CSP training")
-                return
+                logging.error("No trials provided for CSP training")
+                return False
+                
+            # Convert trials to numpy arrays if needed
+            left_data = np.vstack([trial for trial in left_trials if isinstance(trial, np.ndarray)])
+            right_data = np.vstack([trial for trial in right_trials if isinstance(trial, np.ndarray)])
             
-            # Preprocess each trial
-            processed_left = []
-            for trial in left_trials:
-                # Apply filters
-                filtered = self._apply_filters(trial)
-                processed_left.append(filtered)
+            if left_data.size == 0 or right_data.size == 0:
+                logging.error("No valid trial data for CSP training")
+                return False
+                
+            # Ensure data has correct shape
+            if left_data.shape[1] != len(self.channels) or right_data.shape[1] != len(self.channels):
+                logging.error(f"Trial data has incorrect number of channels. Expected {len(self.channels)}, got {left_data.shape[1]} and {right_data.shape[1]}")
+                return False
+                
+            # Calculate covariance matrices
+            cov_left = np.cov(left_data.T)
+            cov_right = np.cov(right_data.T)
             
-            processed_right = []
-            for trial in right_trials:
-                # Apply filters
-                filtered = self._apply_filters(trial)
-                processed_right.append(filtered)
+            # Solve generalized eigenvalue problem
+            eigenvalues, eigenvectors = scipy.linalg.eigh(cov_left, cov_left + cov_right)
             
-            # Compute covariance matrices
-            cov_left = self._compute_covariance_matrices(processed_left)
-            cov_right = self._compute_covariance_matrices(processed_right)
+            # Sort eigenvalues in descending order
+            idx = eigenvalues.argsort()[::-1]
+            eigenvalues = eigenvalues[idx]
+            eigenvectors = eigenvectors[:, idx]
             
-            # Train CSP
-            self.csp_filters, self.csp_patterns = self._train_csp_from_covariance(cov_left, cov_right, n_components)
+            # Select filters (use all channels)
+            self.csp_filters = eigenvectors.T
+            self.csp_patterns = np.linalg.pinv(self.csp_filters)
             
-            # Get normalization parameters from training data
-            all_features = []
-            for trial in processed_left + processed_right:
-                features = self._extract_csp_features(trial, normalize=True)
-                if features is not None:
-                    all_features.append(features)
+            # Calculate mean and std for normalization
+            left_features = np.var(np.dot(left_data, self.csp_filters.T), axis=0)
+            right_features = np.var(np.dot(right_data, self.csp_filters.T), axis=0)
+            all_features = np.vstack([left_features, right_features])
             
-            all_features = np.vstack(all_features)
             self.csp_mean = np.mean(all_features, axis=0)
             self.csp_std = np.std(all_features, axis=0)
             
-            logging.info(f"CSP filters trained with {len(left_trials)} left and {len(right_trials)} right trials")
+            logging.info(f"Trained CSP filters: shape {self.csp_filters.shape}")
+            return True
             
         except Exception as e:
-            logging.exception("Error during CSP training:")
-    
-    def _compute_covariance_matrices(self, trials: List[np.ndarray]) -> np.ndarray:
-        """
-        Compute covariance matrices for a list of trials.
-        
-        Args:
-            trials: List of EEG data arrays
-            
-        Returns:
-            Average covariance matrix
-        """
-        n_channels = trials[0].shape[1]
-        covs = np.zeros((len(trials), n_channels, n_channels))
-        
-        for i, trial in enumerate(trials):
-            # Normalize
-            trial = trial - np.mean(trial, axis=0)
-            # Compute covariance
-            cov = np.dot(trial.T, trial) / (trial.shape[0] - 1)
-            covs[i] = cov
-        
-        # Average covariance
-        avg_cov = np.mean(covs, axis=0)
-        # Make it symmetric
-        avg_cov = (avg_cov + avg_cov.T) / 2
-        
-        return avg_cov
-    
-    def _train_csp_from_covariance(self, cov_a: np.ndarray, cov_b: np.ndarray, n_components: int) -> Tuple[np.ndarray, np.ndarray]:
-        # Validate covariance matrices
-        if np.any(np.isnan(cov_a)) or np.any(np.isnan(cov_b)) or np.any(np.isinf(cov_a)) or np.any(np.isinf(cov_b)):
-            logging.error("Covariance matrices contain NaN or Inf. Aborting CSP training.")
-            raise ValueError("Covariance matrices contain NaN or Inf.")
-        if np.all(cov_a == cov_a.flat[0]) or np.all(cov_b == cov_b.flat[0]):
-            logging.error("Covariance matrix has zero variance. Aborting CSP training.")
-            raise ValueError("Covariance matrix has zero variance.")
-
-        """
-        Train CSP filters from covariance matrices.
-        
-        Args:
-            cov_a: Covariance matrix for class A
-            cov_b: Covariance matrix for class B
-            n_components: Number of components to keep
-            
-        Returns:
-            Tuple of (filters, patterns)
-        """
-        # Solve generalized eigenvalue problem
-        evals, evecs = linalg.eigh(cov_a, cov_a + cov_b)
-        
-        # Sort eigenvectors by eigenvalues in descending order
-        indices = np.argsort(evals)[::-1]
-        evecs = evecs[:, indices]
-        
-        # Select most discriminative components
-        n_keep = min(n_components, len(evals))
-        
-        # Keep first and last n_components/2 eigenvectors
-        if n_keep < 2:
-            filters = evecs[:, :n_keep]
-        else:
-            half = n_keep // 2
-            filters = np.hstack((evecs[:, :half], evecs[:, -half:]))
-        
-        # Compute patterns (inverse of filters)
-        patterns = linalg.pinv(filters).T
-        
-        return filters, patterns
+            logging.exception("Error training CSP filters:")
+            return False
     
     def _extract_csp_features(self, eeg_data: np.ndarray, normalize: bool = True) -> Optional[np.ndarray]:
         """
@@ -593,3 +498,30 @@ class SignalProcessor:
         self.csp_mean = None
         self.csp_std = None
         logging.info("Signal processor reset")
+
+    def reset_baseline(self) -> None:
+        """Reset only the baseline power values (keeps CSP filters)."""
+        self.baseline_mu_power = {ch: None for ch in range(len(self.channels))}
+        self.baseline_beta_power = {ch: None for ch in range(len(self.channels))}
+        logging.info("Baseline power values reset")
+
+    def _extract_band_power(self, data: np.ndarray, band: Tuple[float, float]) -> float:
+        """Extract power in a specific frequency band using Welch's method.
+        
+        Args:
+            data: 1D array of EEG data
+            band: Tuple of (low_freq, high_freq) defining the frequency band
+            
+        Returns:
+            float: Power in the specified frequency band
+        """
+        # Compute power spectral density using Welch's method
+        freqs, psd = welch(data, fs=self.sample_rate, nperseg=min(256, len(data)))
+        
+        # Find indices corresponding to the frequency band
+        idx_band = np.logical_and(freqs >= band[0], freqs <= band[1])
+        
+        # Compute mean power in the band
+        band_power = np.mean(psd[idx_band])
+        
+        return band_power
