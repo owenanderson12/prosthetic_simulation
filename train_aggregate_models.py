@@ -33,6 +33,14 @@ from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
+# Add XGBoost import
+try:
+    from xgboost import XGBClassifier
+    _has_xgboost = True
+except ImportError:
+    _has_xgboost = False
+    XGBClassifier = None
+
 # Local imports – path setup not required when run from project root
 import config
 from dependencies.signal_processor import SignalProcessor
@@ -69,7 +77,7 @@ def parse_args():
         '--classifier-type', 
         type=str, 
         default='lda',
-        choices=['lda', 'svm', 'logreg', 'rf'],
+        choices=['lda', 'svm', 'logreg', 'rf', 'xgb'],
         help='The type of classifier to train: lda, svm, logreg, or rf.'
     )
     parser.add_argument(
@@ -294,6 +302,11 @@ def get_classifier(classifier_type: str) -> Pipeline:
     elif classifier_type == 'rf':
         # Random Forest, good for non-linear interactions
         clf = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42)
+    elif classifier_type == 'xgb':
+        if not _has_xgboost:
+            raise ImportError("XGBoost is not installed. Please install it with 'pip install xgboost'.")
+        # You can tune these parameters as needed
+        clf = XGBClassifier(n_estimators=100, max_depth=6, learning_rate=0.1, use_label_encoder=False, eval_metric='logloss', random_state=42)
     else:
         raise ValueError(f"Unknown classifier type: {classifier_type}")
     
@@ -310,11 +323,20 @@ def train_and_save(features_left, features_right, model_path, classifier_type: s
         np.ones(len(features_right))   # 1 = right
     ])
 
+    logging.info(f"[DEBUG] Training model: {model_path}")
+    logging.info(f"[DEBUG] Classifier type: {classifier_type}")
+    logging.info(f"[DEBUG] Feature shape: {X.shape}")
+    if X.shape[0] > 0 and X.shape[1] > 0:
+        logging.info(f"[DEBUG] First feature vector: {X[0, :5]} ... (showing first 5 values)")
+    else:
+        logging.warning("[DEBUG] Feature matrix is empty!")
+
     if X.shape[0] < 10:
         logging.error("Not enough samples to train a model. Skipping %s.", model_path)
         return 0.0
 
     pipeline = get_classifier(classifier_type)
+    logging.info(f"[DEBUG] Pipeline classifier class: {type(pipeline.named_steps['classifier'])}")
 
     # Cross-validation
     try:
@@ -323,13 +345,11 @@ def train_and_save(features_left, features_right, model_path, classifier_type: s
         min_samples_per_class = np.min(np.bincount(y.astype(int)))
         if min_samples_per_class < n_splits:
             n_splits = min_samples_per_class
-        
         if n_splits < 2:
-             logging.warning("Not enough samples for reliable cross-validation. Skipping.")
-             acc = 0.0
+            logging.warning("Not enough samples for reliable cross-validation. Skipping.")
+            acc = 0.0
         else:
             acc = np.mean(cross_val_score(pipeline, X, y, cv=n_splits, scoring='accuracy'))
-
     except Exception as e:
         logging.error(f"Cross-validation failed: {e}")
         acc = 0.0
@@ -347,7 +367,6 @@ def train_and_save(features_left, features_right, model_path, classifier_type: s
         'threshold': config.CLASSIFIER_THRESHOLD,
         'adaptive_threshold': None  # This was part of the old structure
     }
-    
     # Add CSP filters if available
     if sp is not None and sp.csp_filters is not None:
         model_data['csp_filters'] = sp.csp_filters
@@ -355,10 +374,20 @@ def train_and_save(features_left, features_right, model_path, classifier_type: s
         model_data['csp_mean'] = sp.csp_mean
         model_data['csp_std'] = sp.csp_std
         logging.info("Including CSP filters in saved model")
-    
+
     with open(model_path, 'wb') as f:
         pickle.dump(model_data, f)
     logging.info("Saved model %s (CV accuracy %.3f)", model_path, acc)
+
+    # Debug: Load the model back and print the classifier type
+    try:
+        with open(model_path, 'rb') as f:
+            loaded_model = pickle.load(f)
+        clf_type = type(loaded_model['classifier'].named_steps['classifier'])
+        logging.info(f"[DEBUG] Loaded classifier type from saved model: {clf_type}")
+    except Exception as e:
+        logging.error(f"[DEBUG] Could not load and check saved model: {e}")
+
     return acc
 
 
