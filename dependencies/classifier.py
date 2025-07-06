@@ -44,6 +44,12 @@ class Classifier:
         self.classes = ['left', 'right']  # Class labels
         self.class_map = {0: 'left', 1: 'right'}  # Map indices to class labels
         
+        # CSP filters (for aggregate models)
+        self.csp_filters = None
+        self.csp_patterns = None
+        self.csp_mean = None
+        self.csp_std = None
+        
         # State tracking
         self.current_state = 'idle'
         self.state_history = deque(maxlen=10)  # Last 10 states for smoothing
@@ -60,6 +66,9 @@ class Classifier:
         # Path for model saving/loading
         self.model_dir = config_dict.get('MODEL_DIR', 'models')
         os.makedirs(self.model_dir, exist_ok=True)
+        
+        # Initialize state
+        self.is_trained = False
         
         # Logging initialized state
         logging.info("Classifier initialized with threshold: %.2f", self.threshold)
@@ -497,6 +506,17 @@ class Classifier:
                 else:
                     logging.error("CSP filters not found in aggregate model")
                     return False
+            
+            # Check if this is a robust model (has CSP filters but different structure)
+            elif 'csp_filters' in model_data:
+                logging.info("Loading robust model with CSP filters")
+                
+                # Extract CSP filters from the model data
+                self.csp_filters = model_data['csp_filters']
+                self.csp_patterns = model_data.get('csp_patterns')
+                self.csp_mean = model_data.get('csp_mean')
+                self.csp_std = model_data.get('csp_std')
+                logging.info(f"Loaded CSP filters: shape {self.csp_filters.shape}")
             
             # Update classifier with loaded model
             self.classifier = model_data['classifier']

@@ -241,7 +241,7 @@ class BCISystem:
     
     def _is_aggregate_model_file(self, filename: str) -> bool:
         """
-        Check if a file is an aggregate model from train_aggregate_models.py.
+        Check if a file is an aggregate model from train_aggregate_models.py or train_model.py.
         
         Args:
             filename: Name of the model file
@@ -256,7 +256,8 @@ class BCISystem:
         # Check for aggregate model naming patterns
         aggregate_patterns = [
             'aggregate_csp_model',
-            'aggregate_csp_bp_model'
+            'aggregate_csp_bp_model',
+            'robust_'  # Robust models from train_model.py
         ]
         return any(pattern in filename for pattern in aggregate_patterns)
 
