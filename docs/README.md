@@ -3,7 +3,6 @@
 A real-time Brain-Computer Interface (BCI) system that enables EEG-based control of prosthetic devices using motor imagery signals. The system processes neural signals to classify left vs. right hand motor intentions and translates them into control commands for prosthetic simulations.
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## 🧠 Overview
 
