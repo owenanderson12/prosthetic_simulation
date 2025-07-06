@@ -7,7 +7,7 @@ import sys
 from datetime import datetime
 from collections import deque
 
-from modules.config import *
+from scripts.experimental.neurofeedback_config import *
 
 class LSLDataCollector(threading.Thread):
     """

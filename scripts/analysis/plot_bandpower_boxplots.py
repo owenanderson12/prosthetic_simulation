@@ -6,7 +6,7 @@ This module provides functions for visualizing band power in EEG signals.
 
 import matplotlib.pyplot as plt
 import numpy as np
-from modules.calculate_bandpower import bandpower_boxplot
+from scripts.preprocessing.calculate_bandpower import bandpower_boxplot
 
 def plot_bandpower_boxplots(epochs_dict, sample_rate, epoch_start):
     """

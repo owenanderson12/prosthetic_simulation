@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pywt
 from scipy.ndimage import gaussian_filter
-from modules.plot_erd_time_course import plot_erd_time_course
+from scripts.analysis.plot_erd_time_course import plot_erd_time_course
 
 def plot_wavelet_spectrogram(signal, fs, condition_name, channel_name, epoch_start, epoch_end, baseline_start, baseline_end):
     """

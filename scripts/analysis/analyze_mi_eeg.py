@@ -31,14 +31,14 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 # Import modular functions
-from modules.bandpass_filter import bandpass_filter
-from modules.extract_epochs import extract_epochs
-from modules.plot_erp import plot_erp
-from modules.plot_bandpower_boxplots import plot_bandpower_boxplots
-from modules.plot_wavelet_spectrogram import plot_wavelet_spectrogram
-from modules.compute_bipolar_derivation import compute_bipolar_derivation
-from modules.apply_grand_average_reference import apply_grand_average_reference
-from modules.plot_average_band_powers import plot_average_band_powers
+from scripts.preprocessing.bandpass_filter import bandpass_filter
+from scripts.preprocessing.extract_epochs import extract_epochs
+from scripts.analysis.plot_erp import plot_erp
+from scripts.analysis.plot_bandpower_boxplots import plot_bandpower_boxplots
+from scripts.analysis.plot_wavelet_spectrogram import plot_wavelet_spectrogram
+from scripts.preprocessing.compute_bipolar_derivation import compute_bipolar_derivation
+from scripts.preprocessing.apply_grand_average_reference import apply_grand_average_reference
+from scripts.analysis.plot_average_band_powers import plot_average_band_powers
 
 ########################################################################
 # Configuration

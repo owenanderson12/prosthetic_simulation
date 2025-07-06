@@ -30,9 +30,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 # Import necessary modules
 import scripts.config.config as config
 from dependencies.signal_processor import SignalProcessor
-from modules.bandpass_filter import bandpass_filter
-from modules.extract_epochs import extract_epochs
-from modules.apply_grand_average_reference import apply_grand_average_reference
+from scripts.preprocessing.bandpass_filter import bandpass_filter
+from scripts.preprocessing.extract_epochs import extract_epochs
+from scripts.preprocessing.apply_grand_average_reference import apply_grand_average_reference
 
 # Configuration - adjust paths for scripts subdirectory
 project_root = os.path.join(os.path.dirname(__file__), '..', '..')

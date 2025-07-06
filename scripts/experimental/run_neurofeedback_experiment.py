@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from psychopy import visual, core, event
 
-from modules.config import *
+from scripts.experimental.neurofeedback_config import *
 
 def run_neurofeedback_experiment(neurofeedback_processor):
     """

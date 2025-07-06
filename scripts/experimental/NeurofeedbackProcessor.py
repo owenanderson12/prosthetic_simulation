@@ -4,10 +4,10 @@ import time
 from collections import deque
 from scipy.signal import butter, filtfilt
 
-from modules.config import *
-from modules.calculate_band_power import calculate_band_power
-from modules.fft_power_update import fft_power_update
-from modules.bandpass_filter import bandpass_filter
+from scripts.experimental.neurofeedback_config import *
+from scripts.preprocessing.calculate_band_power import calculate_band_power
+from scripts.preprocessing.fft_power_update import fft_power_update
+from scripts.preprocessing.bandpass_filter import bandpass_filter
 
 class NeurofeedbackProcessor:
     """
