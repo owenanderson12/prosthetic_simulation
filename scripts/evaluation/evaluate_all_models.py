@@ -42,8 +42,13 @@ from sklearn.preprocessing import StandardScaler
 import warnings
 warnings.filterwarnings('ignore')
 
-# Local imports
-import config
+# Local imports – adjust paths for scripts subdirectory
+import sys
+
+# Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+import scripts.config.config as config
 from dependencies.signal_processor import SignalProcessor
 
 # Configure logging
@@ -54,7 +59,9 @@ class ModelEvaluator:
     """Comprehensive model evaluation class for BCI models."""
     
     def __init__(self, output_dir: str = "evaluation_results"):
-        self.output_dir = Path(output_dir)
+        # Adjust output directory path for scripts subdirectory
+        project_root = Path(__file__).parent.parent.parent
+        self.output_dir = project_root / output_dir
         self.output_dir.mkdir(exist_ok=True)
         
         # Results storage
@@ -68,13 +75,16 @@ class ModelEvaluator:
         """Find all model files in the project."""
         model_files = []
         
+        # Adjust paths for scripts subdirectory
+        project_root = Path(__file__).parent.parent.parent
+        
         # Search in models directory
-        models_dir = Path("models")
+        models_dir = project_root / "models"
         if models_dir.exists():
             model_files.extend(glob.glob(str(models_dir / "*.pkl")))
         
         # Search in calibration directory
-        calibration_dir = Path("calibration")
+        calibration_dir = project_root / "calibration"
         if calibration_dir.exists():
             model_files.extend(glob.glob(str(calibration_dir / "*.pkl")))
             # Also check random_forest subdirectory

@@ -25,18 +25,19 @@ import pandas as pd
 from typing import Dict, List, Tuple, Optional
 
 # Add project root to path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 # Import necessary modules
-import config
+import scripts.config.config as config
 from dependencies.signal_processor import SignalProcessor
 from modules.bandpass_filter import bandpass_filter
 from modules.extract_epochs import extract_epochs
 from modules.apply_grand_average_reference import apply_grand_average_reference
 
-# Configuration
-RAW_DATA_DIR = 'data/raw'
-PROCESSED_DATA_DIR = 'data/processed'
+# Configuration - adjust paths for scripts subdirectory
+project_root = os.path.join(os.path.dirname(__file__), '..', '..')
+RAW_DATA_DIR = os.path.join(project_root, 'data', 'raw')
+PROCESSED_DATA_DIR = os.path.join(project_root, 'data', 'processed')
 SAMPLE_RATE = 250  # Hz
 
 # Event markers

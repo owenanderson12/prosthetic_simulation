@@ -79,8 +79,9 @@ def parse_model_name(filename: str) -> Dict:
     return config
 
 def main():
-    # Get all model files
-    model_files = glob.glob('models/aggregate_*.pkl')
+    # Get all model files - adjust path for scripts subdirectory
+    project_root = os.path.join(os.path.dirname(__file__), '..', '..')
+    model_files = glob.glob(os.path.join(project_root, 'models', 'aggregate_*.pkl'))
     if not model_files:
         logging.error("No model files found")
         return

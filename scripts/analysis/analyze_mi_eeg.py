@@ -25,6 +25,11 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+# Add project root to path
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
 # Import modular functions
 from modules.bandpass_filter import bandpass_filter
 from modules.extract_epochs import extract_epochs

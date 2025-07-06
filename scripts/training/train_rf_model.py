@@ -17,14 +17,16 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import cross_val_score
 
-# Add current directory to path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import config
+# Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+import scripts.config.config as config
 from dependencies.signal_processor import SignalProcessor
 
-# Configuration
-MODEL_DIR = 'models'
-CALIBRATION_DIR = 'calibration/random_forest'
+# Configuration - adjust paths for scripts subdirectory
+project_root = os.path.join(os.path.dirname(__file__), '..', '..')
+MODEL_DIR = os.path.join(project_root, 'models')
+CALIBRATION_DIR = os.path.join(project_root, 'calibration', 'random_forest')
 os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(CALIBRATION_DIR, exist_ok=True)
 

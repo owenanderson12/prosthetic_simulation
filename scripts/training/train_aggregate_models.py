@@ -41,17 +41,24 @@ except ImportError:
     _has_xgboost = False
     XGBClassifier = None
 
-# Local imports – path setup not required when run from project root
-import config
+# Local imports – adjust paths for scripts subdirectory
+import sys
+import os
+
+# Add project root to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+import scripts.config.config as config
 from dependencies.signal_processor import SignalProcessor
 from dependencies.file_handler import FileHandler
 
 # -----------------------------------------------------------------------------
-# Configuration
+# Configuration - adjust paths for scripts subdirectory
 # -----------------------------------------------------------------------------
-CALIB_DIR = config.__dict__.get('CALIBRATION_DIR', 'calibration')
-MODEL_DIR = config.__dict__.get('MODEL_DIR', 'models')
-PROCESSED_DATA_DIR = 'data/processed'
+project_root = os.path.join(os.path.dirname(__file__), '..', '..')
+CALIB_DIR = config.__dict__.get('CALIBRATION_DIR', os.path.join(project_root, 'calibration'))
+MODEL_DIR = config.__dict__.get('MODEL_DIR', os.path.join(project_root, 'models'))
+PROCESSED_DATA_DIR = os.path.join(project_root, 'data', 'processed')
 WINDOW_SIZE_S = config.__dict__.get('WINDOW_SIZE', 2.0)
 WINDOW_OVERLAP_S = config.__dict__.get('WINDOW_OVERLAP', 0.5)
 SAMPLE_RATE = config.__dict__.get('SAMPLE_RATE', 250)
