@@ -1,24 +1,27 @@
 # EEG-Controlled Prosthetic Hand System
 
-A real-time Brain-Computer Interface (BCI) system that enables EEG-based control of prosthetic devices using motor imagery signals. The system processes neural signals to classify left vs. right hand motor intentions and translates them into control commands for prosthetic simulations.
+A comprehensive, real-time Brain-Computer Interface (BCI) system that enables EEG-based control of prosthetic devices using motor imagery signals. The system processes neural signals to classify left vs. right hand motor intentions and translates them into control commands for prosthetic simulations.
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## 🧠 Overview
 
-This system implements a complete BCI pipeline from raw EEG acquisition to prosthetic control commands:
+This system implements a complete BCI pipeline from raw EEG acquisition to prosthetic control with comprehensive training, evaluation, and analysis capabilities:
 
 - **Real-time Processing**: Continuous 2-second windowed analysis with 75% overlap
-- **Motor Imagery Classification**: Distinguishes left vs. right hand imagery using CSP + LDA
-- **Adaptive Performance**: Self-adjusting confidence thresholds and artifact rejection
-- **Multiple Interfaces**: Live EEG streaming, file replay, and Unity integration
-- **Comprehensive Analysis**: Offline ERD/ERS analysis and visualization tools
+- **Advanced Classification**: Multiple ML algorithms (LDA, SVM, Random Forest, XGBoost) with CSP spatial filtering
+- **Comprehensive Training**: Robust model training with proper train/validation/test splits
+- **Evaluation Suite**: Detailed performance analysis and model comparison tools
+- **Data Processing**: Complete preprocessing pipeline from raw EEG to processed datasets
+- **Unity Integration**: Full prosthetic simulation control via LSL
+- **Analysis Tools**: Offline ERD/ERS analysis and comprehensive visualization
 
 ### Key Performance Metrics
 - **Latency**: 50-80ms processing delay
-- **Accuracy**: 75-85% classification performance
+- **Accuracy**: 75-85% classification performance on test data
 - **Reliability**: Robust artifact rejection and connection handling
+- **Scalability**: Supports multiple models and evaluation frameworks
 
 ## 🚀 Quick Start
 
@@ -55,353 +58,451 @@ pip install -r requirements.txt
 - CH7: Additional channel
 - CH8: Ground
 
-### 3. First Calibration
+### 3. Data Preprocessing
 
 ```bash
-# Start calibration procedure
-python main.py --calibrate
+# Preprocess raw EEG data files
+python scripts/preprocessing/preprocess_raw_data.py
 
-# Follow the guided steps:
-# 1. Baseline collection (30 seconds - stay relaxed)
-# 2. Left hand imagery (10 trials × 5 seconds each)
-# 3. Right hand imagery (10 trials × 5 seconds each)
-# 4. Automatic model training and validation
+# Or process specific session
+python scripts/preprocessing/preprocess_raw_data.py --session 1
 ```
 
-### 4. Start BCI Control
+### 4. Model Training
 
 ```bash
-# Use your calibrated model
-python main.py --load-calibration <your_calibration_file.pkl>
+# Train comprehensive models with multiple algorithms
+python scripts/training/train_aggregate_models.py
+
+# Train robust models with proper validation
+python scripts/training/train_model.py --classifier-type rf
+
+# Train Random Forest specialized model
+python scripts/training/train_rf_model.py
+```
+
+### 5. Model Evaluation
+
+```bash
+# Evaluate all trained models
+python scripts/evaluation/evaluate_all_models.py
+
+# Quick model comparison
+python scripts/evaluation/evaluate_models.py
+```
+
+### 6. BCI System Operation
+
+```bash
+# Start with calibration
+python main.py --calibrate
+
+# Use trained model
+python main.py --load-calibration models/best_model.pkl
 
 # With visualization
-python main.py --load-calibration <your_calibration_file.pkl> --visualize
+python main.py --load-calibration models/best_model.pkl --visualize
 ```
 
-## 📋 Detailed Usage
+## 📋 System Architecture
 
-### Command Line Interface
+### Core Components
+
+#### Main System (`main.py`)
+- **Entry Point**: Command-line interface with multiple modes
+- **System Management**: Lifecycle management and configuration loading
+- **Integration**: Coordinates all system components
+
+#### BCI System (`dependencies/BCISystem.py`)
+- **System Orchestration**: Manages all BCI components
+- **Data Flow**: Coordinates signal processing and classification
+- **State Management**: Handles calibration and processing modes
+- **Dynamic Configuration**: Runtime parameter adjustment
+
+#### Signal Processing (`dependencies/signal_processor.py`)
+- **Spatial Filtering**: Common Spatial Pattern (CSP) implementation
+- **Temporal Filtering**: Butterworth bandpass filtering
+- **Feature Extraction**: ERD/ERS quantification and band power analysis
+- **Artifact Rejection**: Adaptive thresholding and quality assessment
+
+#### Classification (`dependencies/classifier.py`)
+- **Multiple Algorithms**: LDA, SVM, Random Forest, XGBoost support
+- **Confidence Estimation**: Probabilistic classification with thresholds
+- **Adaptive Performance**: Dynamic threshold adjustment
+- **Model Persistence**: Save/load trained models
+
+#### Data Sources (`dependencies/data_source.py`, `dependencies/eeg_acquisition.py`)
+- **Live EEG**: Real-time LSL stream processing
+- **File Replay**: CSV file-based data simulation
+- **Artificial Data**: Synthetic data generation for testing
+
+#### Calibration System (`dependencies/calibration.py`)
+- **Guided Procedure**: Step-by-step calibration process
+- **Quality Monitoring**: Real-time signal quality assessment
+- **Model Training**: Integrated CSP + classifier training
+- **Validation**: Performance assessment and model saving
+
+### Scripts Organization
+
+#### Training Scripts (`scripts/training/`)
+- **`train_aggregate_models.py`**: Comprehensive model training with multiple algorithms
+- **`train_model.py`**: Robust model training with proper validation splits
+- **`train_rf_model.py`**: Specialized Random Forest model training
+
+#### Evaluation Scripts (`scripts/evaluation/`)
+- **`evaluate_all_models.py`**: Comprehensive model evaluation and comparison
+- **`evaluate_models.py`**: Quick model performance assessment
+
+#### Analysis Scripts (`scripts/analysis/`)
+- **`analyze_mi_eeg.py`**: Complete offline EEG analysis with ERD/ERS visualization
+
+#### Preprocessing Scripts (`scripts/preprocessing/`)
+- **`preprocess_raw_data.py`**: Raw EEG data preprocessing pipeline
+
+#### Testing Scripts (`scripts/testing/`)
+- **`test_lsl_stream.py`**: LSL stream connectivity testing
+- **`test_unity_commands.py`**: Unity integration testing
+
+### Analysis Modules (`modules/`)
+- **Signal Processing**: Bandpass filtering, epoch extraction, artifact rejection
+- **Visualization**: ERD/ERS plotting, spectrogram generation, band power analysis
+- **Feature Extraction**: CSP implementation, band power calculation
+- **Quality Assessment**: Signal quality monitoring and validation
+
+## 🔧 Usage Examples
+
+### Training Workflow
 
 ```bash
-python main.py [OPTIONS]
+# 1. Preprocess raw data
+python scripts/preprocessing/preprocess_raw_data.py
 
-Options:
-  --calibrate                    Start guided calibration procedure
-  --load-calibration FILE        Load saved calibration model
-  --config CONFIG_FILE          Use custom configuration JSON
-  --file-source FILE_PATH       Use recorded EEG file instead of live
-  --visualize                   Enable real-time GUI visualization
-  --help                        Show help message
+# 2. Train multiple models
+python scripts/training/train_aggregate_models.py --classifier-type rf
+
+# 3. Train robust validation model
+python scripts/training/train_model.py --classifier-type rf --hyperparameter-tune
+
+# 4. Evaluate all models
+python scripts/evaluation/evaluate_all_models.py --save-plots
 ```
 
-### Usage Examples
+### BCI Operation Modes
 
-#### Calibration Mode
 ```bash
-# Basic calibration
-python main.py --calibrate
-
-# Calibration with visualization
+# Calibration mode
 python main.py --calibrate --visualize
 
-# Calibration with custom config
-python main.py --calibrate --config custom_settings.json
+# Live operation with best model
+python main.py --load-calibration models/best_model.pkl
+
+# File-based testing
+python main.py --file-source data/raw/session_1/test_data.csv --load-calibration models/test_model.pkl
+
+# Unity integration
+python main.py --load-calibration models/unity_model.pkl --no-wait-unity
 ```
 
-#### Live BCI Operation
+### Analysis and Visualization
+
 ```bash
-# Standard operation
-python main.py --load-calibration my_calibration.pkl
+# Complete EEG analysis
+python scripts/analysis/analyze_mi_eeg.py
 
-# With real-time feedback
-python main.py --load-calibration my_calibration.pkl --visualize
-
-# Custom configuration
-python main.py --load-calibration my_calibration.pkl --config optimized.json
-```
-
-#### File-based Testing
-```bash
-# Test with recorded data
-python main.py --file-source data/raw/test_session.csv
-
-# Analyze pre-recorded session
-python main.py --file-source data/raw/test_session.csv --load-calibration session.pkl --visualize
-```
-
-#### Offline Analysis
-```bash
-# Run comprehensive EEG analysis
-python analyze_mi_eeg.py
-
-# The script will generate:
-# - ERD/ERS spectrograms
-# - Band power comparisons
-# - Time-course analyses
-# - Statistical plots
+# Custom analysis with specific modules
+python -c "
+from modules.plot_wavelet_spectrogram import plot_wavelet_spectrogram
+from modules.plot_erd_time_course import plot_erd_time_course
+# Your analysis code here
+"
 ```
 
 ## ⚙️ Configuration
 
-### Core Parameters (`config.py`)
+### System Configuration (`config.py`)
 
 ```python
-# Signal Processing
+# Signal Processing Parameters
 SAMPLE_RATE = 250              # Hz - EEG sampling rate
 WINDOW_SIZE = 2.0              # seconds - Classification window
-WINDOW_OVERLAP = 0.5           # seconds - Window overlap (75%)
+WINDOW_OVERLAP = 0.5           # seconds - Window overlap
 MU_BAND = (8, 13)              # Hz - Mu rhythm frequency band
 BETA_BAND = (13, 30)           # Hz - Beta rhythm frequency band
 
-# Classification
+# Classification Parameters
 CLASSIFIER_THRESHOLD = 0.65    # Confidence threshold for actions
-MIN_CONFIDENCE = 0.55          # Minimum confidence for any output
+MIN_CONFIDENCE = 0.55          # Minimum confidence for output
 ADAPTIVE_THRESHOLD = True      # Enable adaptive thresholding
 CSP_COMPONENTS = 4             # Number of CSP spatial filters
 
-# Calibration
-CALIBRATION_TRIALS = 10        # Trials per class
-TRIAL_DURATION = 5.0           # seconds
-BASELINE_DURATION = 30.0       # seconds
+# Training Parameters
+CALIBRATION_TRIALS = 10        # Trials per class during calibration
+TRIAL_DURATION = 5.0           # seconds - Length of each trial
+BASELINE_DURATION = 30.0       # seconds - Baseline collection period
 ```
 
-### Custom Configuration
+### Model Training Configuration
 
-Create a JSON file to override defaults:
+```bash
+# Different classifier types
+python scripts/training/train_aggregate_models.py --classifier-type lda
+python scripts/training/train_aggregate_models.py --classifier-type svm
+python scripts/training/train_aggregate_models.py --classifier-type rf
+python scripts/training/train_aggregate_models.py --classifier-type xgb
 
-```json
-{
-    "WINDOW_SIZE": 1.5,
-    "CLASSIFIER_THRESHOLD": 0.7,
-    "MU_BAND": [7, 14],
-    "CALIBRATION_TRIALS": 15,
-    "VISUALIZATION_UPDATE_RATE": 30
-}
+# Channel selection
+python scripts/training/train_aggregate_models.py --channels 2 3 6 7
+
+# Data exclusion
+python scripts/training/train_aggregate_models.py --exclude-session-3
 ```
 
-Use with: `python main.py --config custom.json`
+## 📊 Model Evaluation
 
-### Hardware Configuration
+### Comprehensive Evaluation
 
-**OpenBCI Settings:**
-- Sampling Rate: 250 Hz
-- LSL Stream Name: "OpenBCI_EEG"
-- Channel Count: 8
-- Data Format: Float32
+The system provides detailed model evaluation with:
 
-**LSL Configuration:**
-- EEG Stream: "OpenBCI_EEG"
-- Output Stream: "ProstheticControl"
-- Marker Stream: "MI_MarkerStream"
+- **Performance Metrics**: Accuracy, Precision, Recall, F1-Score, ROC-AUC
+- **Cross-Validation**: K-fold validation with statistical analysis
+- **Confusion Matrices**: Detailed classification analysis
+- **Model Comparison**: Side-by-side performance comparison
+- **Visualization**: Performance plots and confusion matrix heatmaps
+
+```bash
+# Generate comprehensive evaluation report
+python scripts/evaluation/evaluate_all_models.py --save-plots --verbose
+
+# Results saved to:
+# - evaluation_results/detailed_evaluation_report.json
+# - evaluation_results/model_evaluation_summary.csv
+# - evaluation_results/confusion_matrices.png
+# - evaluation_results/performance_comparison.png
+```
+
+### Performance Analysis
+
+```bash
+# Quick model comparison
+python scripts/evaluation/evaluate_models.py
+
+# Generates:
+# - model_evaluation_results.csv
+# - Console summary with best models by category
+```
 
 ## 🏗️ Project Structure
 
 ```
 prosthetic/
-├── main.py                    # Main entry point
+├── main.py                    # Main BCI system entry point
 ├── config.py                  # System configuration
-├── analyze_mi_eeg.py         # Offline analysis script
-├── requirements.txt          # Python dependencies
-├── README.md                 # This file
+├── requirements.txt           # Python dependencies
 │
-├── dependencies/             # Core BCI modules
-│   ├── BCISystem.py         # Main system orchestrator
-│   ├── data_source.py       # Data acquisition abstraction
-│   ├── eeg_acquisition.py   # Live EEG streaming
-│   ├── file_handler.py      # File-based data replay
-│   ├── signal_processor.py  # Feature extraction pipeline
-│   ├── classifier.py        # ML classification engine
-│   ├── calibration.py       # Guided calibration system
-│   ├── simulation_interface.py # Unity communication
-│   └── visualization.py     # Real-time GUI
+├── scripts/                   # Organized scripts
+│   ├── training/              # Model training scripts
+│   │   ├── train_aggregate_models.py
+│   │   ├── train_model.py
+│   │   └── train_rf_model.py
+│   ├── evaluation/            # Model evaluation scripts
+│   │   ├── evaluate_all_models.py
+│   │   └── evaluate_models.py
+│   ├── analysis/              # Data analysis scripts
+│   │   └── analyze_mi_eeg.py
+│   ├── preprocessing/         # Data preprocessing scripts
+│   │   └── preprocess_raw_data.py
+│   ├── testing/               # System testing scripts
+│   │   ├── test_lsl_stream.py
+│   │   └── test_unity_commands.py
+│   └── config/                # Configuration files
+│       └── config.py
 │
-├── modules/                  # Analysis utilities
-│   ├── bandpass_filter.py   # Filtering functions
-│   ├── extract_epochs.py    # Trial segmentation
-│   ├── plot_*.py           # Visualization tools
-│   └── calculate_*.py      # Analysis functions
+├── dependencies/              # Core BCI system modules
+│   ├── BCISystem.py          # Main system orchestrator
+│   ├── signal_processor.py   # Signal processing pipeline
+│   ├── classifier.py         # Classification engine
+│   ├── calibration.py        # Calibration system
+│   ├── data_source.py        # Data source abstraction
+│   ├── eeg_acquisition.py    # Live EEG acquisition
+│   ├── file_handler.py       # File-based data handling
+│   ├── simulation_interface.py # Unity integration
+│   └── visualization.py      # Real-time visualization
 │
-├── data/                     # Data storage
-│   ├── raw/                 # Raw EEG recordings
-│   └── processed/           # Processed datasets
+├── modules/                   # Analysis and utility modules
+│   ├── bandpass_filter.py    # Signal filtering
+│   ├── extract_epochs.py     # Epoch extraction
+│   ├── calculate_*.py        # Feature calculation
+│   ├── plot_*.py            # Visualization functions
+│   ├── NeurofeedbackProcessor.py
+│   └── LSLDataCollector.py
 │
-├── calibration/             # Saved calibration models
-├── models/                  # Trained classifiers
-└── analysis_results/        # Analysis outputs
+├── unity_integration/         # Unity integration components
+│   ├── BCIProstheticController.cs
+│   └── UnityReadySignal.cs
+│
+├── data/                      # Data storage
+│   ├── raw/                  # Raw EEG recordings
+│   └── processed/            # Processed datasets
+│
+├── models/                    # Trained models
+├── calibration/              # Calibration data
+├── evaluation_results/       # Evaluation outputs
+├── analysis_results/         # Analysis outputs
+└── docs/                     # Documentation
+    ├── README.md
+    ├── SYSTEM_COMPLETE.md
+    ├── ARCHITECTURE.md
+    └── API_REFERENCE.md
 ```
-
-## 🔧 Advanced Usage
-
-### Custom Signal Processing
-
-Modify signal processing parameters in `dependencies/signal_processor.py`:
-
-```python
-# Custom frequency bands
-self.mu_band = (7, 14)        # Wider mu band
-self.beta_band = (14, 35)     # Extended beta band
-
-# Artifact rejection thresholds
-self.artifact_amplitude_threshold = 150  # μV
-self.artifact_variance_threshold = 40    # μV²
-```
-
-### Machine Learning Extensions
-
-Extend the classifier in `dependencies/classifier.py`:
-
-```python
-# Add ensemble methods
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import SVC
-
-# Custom feature engineering
-def extract_custom_features(self, eeg_data):
-    # Add your feature extraction here
-    pass
-```
-
-### Real-time Visualization
-
-The PyQt5-based GUI provides:
-- **Signal Display**: Real-time EEG traces
-- **Frequency Analysis**: Band power visualization
-- **Classification**: Confidence meters and state indicators
-- **System Status**: Connection health and performance metrics
-
-Enable with: `python main.py --visualize`
 
 ## 🔌 Unity Integration
 
-### LSL Output Stream
+### LSL Communication
 
-The system creates an LSL output stream named "ProstheticControl" with structured commands:
-
-```json
-{
-    "class": "left|right|idle",
-    "confidence": 0.85,
-    "probability": 0.78,
-    "timestamp": 1234567890.123
-}
-```
-
-### Command Mapping
-
-- **Left Hand Imagery** → Hand open/close actions
-- **Right Hand Imagery** → Wrist rotation
-- **Idle/Rest** → Maintain current position
-- **Low Confidence** → No action
-
-### Unity Script Example
+The system creates an LSL output stream "ProstheticControl" for Unity:
 
 ```csharp
+// Unity C# Script Example
 using LSL;
 
-public class BCIController : MonoBehaviour 
+public class BCIProstheticController : MonoBehaviour 
 {
     private StreamInlet inlet;
     
     void Start() 
     {
+        // Find and connect to BCI stream
         StreamInfo[] streams = LSL.resolve_stream("name", "ProstheticControl");
-        inlet = new StreamInlet(streams[0]);
+        if (streams.Length > 0) 
+        {
+            inlet = new StreamInlet(streams[0]);
+        }
     }
     
     void Update() 
     {
         float[] sample = new float[4];
-        if (inlet.pull_sample(sample, 0.0) != 0) 
+        if (inlet != null && inlet.pull_sample(sample, 0.0) != 0) 
         {
             ProcessBCICommand(sample);
+        }
+    }
+    
+    void ProcessBCICommand(float[] data)
+    {
+        // data[0] = hand_state (0.0-1.0)
+        // data[1] = wrist_state (0.0-1.0)
+        // data[2] = command_type (0=idle, 1=left, 2=right)
+        // data[3] = confidence (0.0-1.0)
+        
+        if (data[3] > 0.65) // Confidence threshold
+        {
+            if (data[2] == 1) // Left hand command
+            {
+                // Control hand open/close
+                ControlHandOpenClose(data[0]);
+            }
+            else if (data[2] == 2) // Right hand command
+            {
+                // Control wrist rotation
+                ControlWristRotation(data[1]);
+            }
         }
     }
 }
 ```
 
-## 📊 Performance Analysis
+### Command Mapping
 
-### Classification Metrics
-
-Monitor performance with built-in tools:
-
-```python
-# View real-time confidence
-# Check calibration results
-# Analyze confusion matrices
-# Track adaptation over time
-```
-
-### Signal Quality Assessment
-
-```bash
-# Check electrode impedance
-# Monitor artifact rejection rate
-# Validate CSP patterns
-# Assess ERD/ERS strength
-```
-
-Use `csp_patterns.png` to visualize spatial filters and `analyze_mi_eeg.py` for comprehensive analysis.
+- **Left Hand Imagery** → Hand open/close control
+- **Right Hand Imagery** → Wrist rotation control
+- **Idle State** → Maintain current position
+- **Confidence < Threshold** → No action
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
-**LSL Connection Failed**
+**Model Training Failures**
 ```bash
-# Check OpenBCI GUI is streaming
-# Verify stream name matches config
-# Restart LSL resolver
-python -c "import pylsl; print(pylsl.resolve_streams())"
+# Check data availability
+ls data/processed/
+ls calibration/
+
+# Verify preprocessing
+python scripts/preprocessing/preprocess_raw_data.py --session 1
+
+# Check model training with verbose output
+python scripts/training/train_model.py --verbose
 ```
 
-**Poor Classification Accuracy**
+**Poor Classification Performance**
 ```bash
-# Re-run calibration with better electrode contact
-# Increase calibration trials
-# Check CSP pattern visualization
-# Verify motor imagery technique
+# Evaluate all models to find best performer
+python scripts/evaluation/evaluate_all_models.py
+
+# Try different algorithms
+python scripts/training/train_aggregate_models.py --classifier-type rf
+python scripts/training/train_aggregate_models.py --classifier-type svm
+
+# Check data quality
+python scripts/analysis/analyze_mi_eeg.py
 ```
 
-**High Latency**
+**LSL Connection Issues**
 ```bash
-# Reduce WINDOW_SIZE in config
-# Check system CPU usage
-# Optimize buffer sizes
-# Disable unnecessary visualization
+# Test LSL connectivity
+python scripts/testing/test_lsl_stream.py
+
+# Check available streams
+python -c "from pylsl import resolve_streams; print([s.name() for s in resolve_streams()])"
 ```
 
-**Signal Quality Issues**
+**Unity Integration Problems**
 ```bash
-# Check electrode gel/saline
-# Verify ground connection
-# Reduce environmental noise
-# Check cable connections
+# Test Unity commands
+python scripts/testing/test_unity_commands.py
+
+# Check LSL output
+python main.py --load-calibration models/best_model.pkl --no-wait-unity
 ```
 
-### Debug Mode
+## 📈 Performance Optimization
 
-Enable detailed logging:
+### Model Selection
+
+```bash
+# Compare all trained models
+python scripts/evaluation/evaluate_all_models.py
+
+# Best practices:
+# 1. Use Random Forest for robust performance
+# 2. Ensure proper train/validation/test splits
+# 3. Apply cross-validation for model selection
+# 4. Monitor overfitting with separate test sets
+```
+
+### Real-time Performance
 
 ```python
-# In config.py
-DEBUG_MODE = True
-LOG_LEVEL = "DEBUG"
+# In config.py - optimize for speed
+WINDOW_SIZE = 1.5              # Smaller window for faster processing
+WINDOW_OVERLAP = 0.25          # Less overlap for higher update rate
+CSP_COMPONENTS = 3             # Fewer components for speed
 ```
 
-Check logs in `bci_system.log` for detailed diagnostic information.
-
-### Validation Tools
+### Data Quality
 
 ```bash
-# Test signal quality
-python main.py --file-source test_data.csv --visualize
+# Preprocess with quality checks
+python scripts/preprocessing/preprocess_raw_data.py
 
-# Validate calibration
-python analyze_mi_eeg.py
+# Analyze signal quality
+python scripts/analysis/analyze_mi_eeg.py
 
-# Check component functionality
-python -m pytest tests/  # If test suite exists
+# Check for artifacts and noise
+# Verify electrode impedance
+# Ensure proper grounding
 ```
 
 ## 🔬 Research and Development
@@ -409,31 +510,50 @@ python -m pytest tests/  # If test suite exists
 ### Data Collection
 
 ```bash
-# Record calibration session
-python main.py --calibrate  # Saves to calibration/
+# Collect new calibration data
+python main.py --calibrate
 
-# Collect research data
-python main.py --file-source recorded_session.csv
+# Process research sessions
+python scripts/preprocessing/preprocess_raw_data.py --session [N]
+
+# Analyze motor imagery patterns
+python scripts/analysis/analyze_mi_eeg.py
 ```
 
 ### Experimental Analysis
 
 ```bash
-# Generate research plots
-python analyze_mi_eeg.py
+# Comprehensive EEG analysis
+python scripts/analysis/analyze_mi_eeg.py
 
-# Custom analysis
-python modules/plot_erd_time_course.py
-python modules/plot_wavelet_spectrogram.py
+# Custom analysis with modules
+python -c "
+from modules.plot_wavelet_spectrogram import plot_wavelet_spectrogram
+from modules.plot_erd_time_course import plot_erd_time_course
+from modules.calculate_bandpower import bandpower_boxplot
+# Your custom analysis here
+"
 ```
 
-### Performance Optimization
+### Model Development
 
-Key optimization areas:
-- **Signal Processing**: Optimize filter implementations
-- **Classification**: Experiment with ML algorithms
-- **Real-time**: Reduce processing bottlenecks
-- **Features**: Add new feature extraction methods
+```bash
+# Experiment with different algorithms
+python scripts/training/train_aggregate_models.py --classifier-type xgb
+python scripts/training/train_model.py --classifier-type svm --hyperparameter-tune
+
+# Channel selection experiments
+python scripts/training/train_aggregate_models.py --channels 2 3 6 7
+python scripts/training/train_aggregate_models.py --channels 3 6  # Minimal set
+```
+
+## 📚 Documentation
+
+- **`docs/README.md`**: This comprehensive guide
+- **`docs/SYSTEM_COMPLETE.md`**: System implementation details
+- **`docs/ARCHITECTURE.md`**: Technical architecture overview
+- **`docs/API_REFERENCE.md`**: Module and function reference
+- **`docs/TEST_WALKTHROUGH.md`**: Testing procedures and validation
 
 ## 🤝 Contributing
 
@@ -446,56 +566,49 @@ cd prosthetic
 
 # Install development dependencies
 pip install -r requirements.txt
-pip install pytest black flake8
 
 # Run tests
-python -m pytest
-
-# Code formatting
-black *.py dependencies/ modules/
+python scripts/testing/test_lsl_stream.py
+python scripts/testing/test_unity_commands.py
 ```
 
 ### Extension Points
 
-1. **New Classifiers**: Add to `dependencies/classifier.py`
+1. **New Algorithms**: Add to `dependencies/classifier.py`
 2. **Feature Extraction**: Extend `dependencies/signal_processor.py`
-3. **Data Sources**: Implement new sources in `dependencies/`
-4. **Analysis Tools**: Add functions to `modules/`
-5. **Visualization**: Enhance `dependencies/visualization.py`
-
-## 📝 Citation
-
-If you use this system in research, please cite:
-
-```bibtex
-@software{eeg_prosthetic_bci,
-    title={EEG-Controlled Prosthetic Hand System},
-    author={Your Name},
-    year={2024},
-    url={https://github.com/your-repo/prosthetic}
-}
-```
+3. **Analysis Tools**: Add to `modules/`
+4. **Training Methods**: Create new scripts in `scripts/training/`
+5. **Evaluation Metrics**: Enhance `scripts/evaluation/`
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 🆘 Support
 
-- **Issues**: Report bugs on GitHub Issues
-- **Documentation**: Check the `simulation_plan.txt` for implementation details
-- **Examples**: See the `modules/` directory for analysis examples
+- **Issues**: Report bugs and request features on GitHub Issues
+- **Documentation**: Comprehensive docs in the `docs/` directory
+- **Examples**: Working examples in `scripts/` and `modules/`
 - **Community**: Join discussions in GitHub Discussions
 
 ---
 
 **System Requirements:**
 - Python 3.8+
-- OpenBCI Cyton board (or compatible LSL source)
-- 8GB+ RAM recommended
-- Multi-core CPU for real-time processing
+- OpenBCI Cyton board or compatible LSL EEG source
+- 8GB+ RAM recommended for model training
+- Multi-core CPU for optimal real-time performance
 
 **Tested Platforms:**
-- macOS 10.15+
-- Ubuntu 18.04+
-- Windows 10+ 
+- macOS 10.15+ (Apple Silicon and Intel)
+- Ubuntu 18.04+ (x86_64)
+- Windows 10+ (x86_64)
+
+**Key Features:**
+- ✅ Real-time EEG processing (50-80ms latency)
+- ✅ Multiple ML algorithms (LDA, SVM, RF, XGBoost)
+- ✅ Comprehensive evaluation suite
+- ✅ Unity prosthetic integration
+- ✅ Robust data preprocessing
+- ✅ Advanced analysis tools
+- ✅ Modular architecture 
