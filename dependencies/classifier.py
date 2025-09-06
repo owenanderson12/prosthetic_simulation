@@ -41,8 +41,9 @@ class Classifier:
         # Classifier
         self.classifier = None
         self.model_type = None  # 'lda' or 'pipeline'
-        self.classes = ['left', 'right']  # Class labels
-        self.class_map = {0: 'left', 1: 'right'}  # Map indices to class labels
+        # Support three classes by default
+        self.classes = ['left', 'right', 'idle']  # Class labels
+        self.class_map = {0: 'left', 1: 'right', 2: 'idle'}  # Map indices to class labels
         
         # CSP filters (for aggregate models)
         self.csp_filters = None
@@ -73,20 +74,24 @@ class Classifier:
         # Logging initialized state
         logging.info("Classifier initialized with threshold: %.2f", self.threshold)
     
-    def train(self, 
-              features_left: List[np.ndarray], 
-              features_right: List[np.ndarray], 
+    def train(self,
+              features_left: List[np.ndarray],
+              features_right: List[np.ndarray],
+              features_idle: Optional[List[np.ndarray]] = None,
               shrinkage: Optional[Union[str, float]] = 'auto',
               covariance_estimator: Optional[object] = None) -> float:
-        """
-        Train the LDA classifier on left vs. right motor imagery feature vectors.
-        
+        """Train the LDA classifier.
+
+        Supports both binary (left/right) and trinary (left/right/idle) training
+        depending on whether idle features are provided.
+
         Args:
             features_left: List of feature vectors for left hand imagery
             features_right: List of feature vectors for right hand imagery
+            features_idle: Optional list of feature vectors for idle state
             shrinkage: Shrinkage parameter for LDA ('auto' or float value)
             covariance_estimator: Custom covariance estimator (added in sklearn 0.24)
-            
+
         Returns:
             Cross-validation accuracy score
         """
@@ -94,14 +99,39 @@ class Classifier:
             if not features_left or not features_right:
                 logging.error("Cannot train classifier: No training examples provided")
                 return 0.0
-                
-            # Prepare training data and labels
-            X_train = np.vstack([np.array(features_left), np.array(features_right)])
-            y_train = np.hstack([
-                np.zeros(len(features_left)),  # 0 = left
-                np.ones(len(features_right))   # 1 = right
-            ])
-            
+
+            if features_idle and len(features_idle) > 0:
+                # Prepare training data with idle class
+                X_train = np.vstack([
+                    np.array(features_left),
+                    np.array(features_right),
+                    np.array(features_idle)
+                ])
+                y_train = np.hstack([
+                    np.zeros(len(features_left)),        # 0 = left
+                    np.ones(len(features_right)),         # 1 = right
+                    np.full(len(features_idle), 2)        # 2 = idle
+                ])
+                self.classes = ['left', 'right', 'idle']
+                self.class_map = {0: 'left', 1: 'right', 2: 'idle'}
+                logging.info(
+                    "Training trinary classifier with %d left, %d right, %d idle examples",
+                    len(features_left), len(features_right), len(features_idle)
+                )
+            else:
+                # Binary classification
+                X_train = np.vstack([np.array(features_left), np.array(features_right)])
+                y_train = np.hstack([
+                    np.zeros(len(features_left)),  # 0 = left
+                    np.ones(len(features_right))   # 1 = right
+                ])
+                self.classes = ['left', 'right']
+                self.class_map = {0: 'left', 1: 'right'}
+                logging.info(
+                    "Training binary classifier with %d left and %d right examples",
+                    len(features_left), len(features_right)
+                )
+
             # Create and train LDA classifier with updated parameters
             self.classifier = LinearDiscriminantAnalysis(
                 solver='lsqr',
@@ -111,24 +141,23 @@ class Classifier:
                 tol=0.0001
             )
             self.model_type = 'lda'
-            
+
             # Compute cross-validation score
             cv_scores = cross_val_score(self.classifier, X_train, y_train, cv=5)
             accuracy = cv_scores.mean()
-            
+
             # Fit on all data
             self.classifier.fit(X_train, y_train)
-            
-            logging.info(f"Classifier trained with {len(features_left)} left and {len(features_right)} right examples")
+
             logging.info(f"Cross-validation accuracy: {accuracy:.3f}")
-            
+
             # Reset state
             self.state_history.clear()
             self.probabilities_history.clear()
             self.current_state = 'idle'
-            
+
             return accuracy
-            
+
         except Exception as e:
             logging.exception("Error during classifier training:")
             return 0.0
@@ -377,12 +406,15 @@ class Classifier:
             recent_states = list(self.state_history)[-3:]
             left_count = recent_states.count('left')
             right_count = recent_states.count('right')
-            
+            idle_count = recent_states.count('idle')
+
             # Strong majority for a class
-            if left_count >= 2 and left_count > right_count:
+            if left_count >= 2 and left_count > max(right_count, idle_count):
                 next_state = 'left'
-            elif right_count >= 2 and right_count > left_count:
+            elif right_count >= 2 and right_count > max(left_count, idle_count):
                 next_state = 'right'
+            elif idle_count >= 2 and idle_count > max(left_count, right_count):
+                next_state = 'idle'
             else:
                 # No strong majority, use current classification if confident
                 next_state = class_name if confidence > 0.75 else self.current_state
