@@ -342,20 +342,20 @@ def minimal_augmentation(trials: List[np.ndarray], sample_rate: int) -> List[np.
 def evaluate_model(model, X_test, y_test, model_name: str) -> Dict[str, float]:
     """Evaluate model on test set and return metrics."""
     y_pred = model.predict(X_test)
-    y_pred_proba = model.predict_proba(X_test) if hasattr(model, 'predict_proba') else None
-
+    y_pred_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, 'predict_proba') else None
+    
     metrics = {
         'accuracy': accuracy_score(y_test, y_pred),
-        'precision': precision_score(y_test, y_pred, average='macro', zero_division=0),
-        'recall': recall_score(y_test, y_pred, average='macro', zero_division=0),
-        'f1_score': f1_score(y_test, y_pred, average='macro', zero_division=0)
+        'precision': precision_score(y_test, y_pred, average='binary'),
+        'recall': recall_score(y_test, y_pred, average='binary'),
+        'f1_score': f1_score(y_test, y_pred, average='binary')
     }
-
+    
     if y_pred_proba is not None:
         try:
             from sklearn.metrics import roc_auc_score
-            metrics['roc_auc'] = roc_auc_score(y_test, y_pred_proba, multi_class='ovr')
-        except Exception:
+            metrics['roc_auc'] = roc_auc_score(y_test, y_pred_proba)
+        except:
             metrics['roc_auc'] = None
     
     # Print detailed results
@@ -374,10 +374,9 @@ def evaluate_model(model, X_test, y_test, model_name: str) -> Dict[str, float]:
     cm = confusion_matrix(y_test, y_pred)
     print(f"\nConfusion Matrix:")
     print(f"  Predicted")
-    print(f"Actual  Left Right Idle")
-    class_labels = ['Left', 'Right', 'Idle']
-    for i, label in enumerate(class_labels):
-        print(f"{label:<7}{cm[i,0]:5d} {cm[i,1]:6d} {cm[i,2]:6d}")
+    print(f"Actual  Left Right")
+    print(f"Left    {cm[0,0]:4d} {cm[0,1]:5d}")
+    print(f"Right   {cm[1,0]:4d} {cm[1,1]:5d}")
     
     return metrics
 
@@ -402,9 +401,9 @@ def main():
     # Load all data
     logging.info("Loading all available data...")
     baseline_data, left_trials, right_trials = load_all_data(channel_indices, args.exclude_session_3)
-
-    if not left_trials or not right_trials or baseline_data.size == 0:
-        logging.error("Insufficient trials for training (need left, right, and baseline). Exiting.")
+    
+    if not left_trials or not right_trials:
+        logging.error("No trials found. Exiting.")
         return
     
     # Apply minimal augmentation if requested
@@ -429,23 +428,14 @@ def main():
     logging.info("Extracting features...")
     left_features = extract_features(sp, left_trials)
     right_features = extract_features(sp, right_trials)
-    idle_features = extract_features(sp, [baseline_data])
-
-    if not left_features or not right_features or not idle_features:
-        logging.error("No features extracted for one or more classes. Exiting.")
+    
+    if not left_features or not right_features:
+        logging.error("No features extracted. Exiting.")
         return
-
-    # Prepare data for splitting (0=left,1=right,2=idle)
-    X = np.vstack([
-        np.array(left_features),
-        np.array(right_features),
-        np.array(idle_features)
-    ])
-    y = np.hstack([
-        np.zeros(len(left_features)),
-        np.ones(len(right_features)),
-        np.full(len(idle_features), 2)
-    ])
+    
+    # Prepare data for splitting
+    X = np.vstack([np.array(left_features), np.array(right_features)])
+    y = np.hstack([np.zeros(len(left_features)), np.ones(len(right_features))])
     
     logging.info(f"Total samples: {len(X)}")
     logging.info(f"Feature dimensions: {X.shape[1]}")
