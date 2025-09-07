@@ -21,7 +21,7 @@ for directory in [DATA_DIR, RAW_DATA_DIR, PROCESSED_DATA_DIR, MODEL_DIR, CALIBRA
 # --- LSL Stream Names ---
 EEG_STREAM_NAME = "OpenBCI_EEG"
 MARKER_STREAM_NAME = "MI_MarkerStream"
-UNITY_OUTPUT_STREAM = "HandGesturePredictions"
+UNITY_OUTPUT_STREAM = "ProstheticControl"
 
 # --- EEG Acquisition ---
 SAMPLE_RATE = 250  # Hz
