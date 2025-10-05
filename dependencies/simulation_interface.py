@@ -98,7 +98,7 @@ class SimulationInterface:
             logging.exception("Error creating LSL stream:")
             return False
     
-    def wait_for_unity_connection(self, timeout: float = 30.0, check_ready_stream: bool = True) -> bool:
+    def wait_for_unity_connection(self, timeout: float = 700.0, check_ready_stream: bool = True) -> bool:
         """
         Wait for Unity to connect to the LSL stream.
         
@@ -300,13 +300,11 @@ class SimulationInterface:
         """
         class_name = command.get('class', 'idle')
         confidence = command.get('confidence', 0.0)
-        
+        cmd_type = 0  # 0 = idle
+
         # Skip processing if confidence is too low
         if confidence < self.config.get('MIN_CONFIDENCE', 0.55):
             return
-            
-        # Determine command type
-        cmd_type = 0  # 0 = idle
         
         if class_name == 'left':
             # Left class = hand open/close
@@ -329,7 +327,7 @@ class SimulationInterface:
             self.outlet.push_sample([
                 self.current_hand_state,
                 self.current_wrist_state,
-                float(cmd_type),
+                cmd_type,
                 float(confidence)
             ])
             

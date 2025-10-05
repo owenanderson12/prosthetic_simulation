@@ -288,7 +288,7 @@ class BCISystem:
                     
                     # Skip calibration phase but ensure baseline collection is enabled
                     self.calibration_mode = False
-                    self.signal_processor.reset_baseline()  # Reset baseline for fresh collection
+                    self.signal_processor.reset_baseline()   # Reset baseline for fresh collection
                     return True
                 else:
                     logging.error("Failed to load aggregate model")
@@ -378,10 +378,6 @@ class BCISystem:
                         logging.warning(f"Invalid processing result: {processing_result}")
                         time.sleep(0.05)
                         continue
-
-                    # Always update baseline if we have valid data
-                    if 'features' in processing_result and processing_result['features'] is not None:
-                        self.signal_processor.update_baseline(data)
 
                     # Extract features for classification
                     features = processing_result.get('features')
