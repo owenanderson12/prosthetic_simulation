@@ -1,0 +1,55 @@
+{
+  "versions": [
+    {
+      "filename": "rf_model_20250707_210632.joblib",
+      "filepath": "models/rf_model_20250707_210632.joblib",
+      "timestamp": "20250707_210632",
+      "model_type": "rf",
+      "performance": {
+        "accuracy": 0.5833333333333333,
+        "accuracy_std": 0.1800205749557739
+      }
+    },
+    {
+      "filename": "rf_model_20250706_174426.joblib",
+      "filepath": "models/rf_model_20250706_174426.joblib",
+      "timestamp": "20250706_174426",
+      "model_type": "rf",
+      "performance": {
+        "accuracy": 0.5833333333333333,
+        "accuracy_std": 0.1800205749557739
+      }
+    },
+    {
+      "filename": "rf_model_20250706_174117.joblib",
+      "filepath": "models/rf_model_20250706_174117.joblib",
+      "timestamp": "20250706_174117",
+      "model_type": "rf",
+      "performance": {
+        "accuracy": 0.7222222222222222,
+        "accuracy_std": 0.20786985482077452
+      }
+    },
+    {
+      "filename": "rf_model_20250706_173855.joblib",
+      "filepath": "models/rf_model_20250706_173855.joblib",
+      "timestamp": "20250706_173855",
+      "model_type": "rf",
+      "performance": {
+        "accuracy": 0.7222222222222222,
+        "accuracy_std": 0.20786985482077452
+      }
+    },
+    {
+      "filename": "rf_model_20250706_173626.joblib",
+      "filepath": "models/rf_model_20250706_173626.joblib",
+      "timestamp": "20250706_173626",
+      "model_type": "rf",
+      "performance": {
+        "accuracy": 0.7222222222222222,
+        "accuracy_std": 0.20786985482077452
+      }
+    }
+  ],
+  "current": "rf_model_20250707_210632.joblib"
+}
